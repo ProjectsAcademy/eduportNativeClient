@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "ExamFlow AI",
+    "slug": "examflow-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D0D1A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.examflowai.native"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D0D1A"
+      },
+      "package": "com.examflowai.native"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-font"],
+    "scheme": "com.examflowai.native",
+    "extra": {
+      "apiUrl": "http://192.168.1.8:5000",
+      "googleClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+      "googleExpoClientId": "YOUR_EXPO_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+    }
+  }
+}
