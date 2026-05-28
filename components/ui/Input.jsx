@@ -13,6 +13,7 @@ export function Input({
   secureTextEntry = false,
   keyboardType = 'default',
   autoCapitalize = 'none',
+  autoComplete,
   icon = null,            // Feather icon name string
   rightIcon = null,
   onRightIconPress = null,
@@ -77,6 +78,7 @@ export function Input({
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
+          autoComplete={autoComplete}
           editable={!disabled}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -120,6 +122,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.base,
     minHeight: 48,
     paddingVertical: 0,
+    outlineStyle: 'none',
   },
   rightIconBtn: {
     padding: 4,

@@ -51,6 +51,12 @@ export default function DashboardLayout() {
           <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: C.background } }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="settings" />
+            <Stack.Screen name="exams" />
+            <Stack.Screen name="create-exam" />
+            <Stack.Screen name="join-exam" />
+            <Stack.Screen name="results" />
+            <Stack.Screen name="student-report" />
+            <Stack.Screen name="history" />
           </Stack>
         </View>
       </View>

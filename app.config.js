@@ -49,7 +49,7 @@ export default {
     ],
     scheme: "com.examflowai.native",
     extra: {
-      apiUrl: "http://192.168.1.8:5000",
+      apiUrl: "http://192.168.1.12:5000",
       googleClientId: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       googleExpoClientId: "YOUR_EXPO_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       eas: {

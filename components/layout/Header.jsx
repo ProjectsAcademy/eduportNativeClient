@@ -49,6 +49,7 @@ export function Header({ onMenuPress, title = '' }) {
               placeholder="Search exams, students..."
               placeholderTextColor={C.textSubtle}
               style={[styles.searchInput, { color: C.foreground, fontFamily: Typography.fontFamily.regular }]}
+              autoComplete="off"
             />
           </View>
         )}
@@ -166,6 +167,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.sm,
     height: 36,
     paddingVertical: 0,
+    outlineStyle: 'none',
   },
   right: {
     flexDirection: 'row',
@@ -225,11 +227,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingVertical: 8,
     zIndex: 100,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 8px 20px rgba(0,0,0,0.15)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+    }),
   },
   dropdownSection: {
     fontSize: 9,

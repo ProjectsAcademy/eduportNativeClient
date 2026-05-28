@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Platform, useWindowDimensions, Alert, KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -34,6 +35,7 @@ export default function AuthScreen() {
   const C = isDark ? Colors.dark : Colors.light;
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 768;
+  const insets = useSafeAreaInsets();
 
   const [formType, setFormType] = useState('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -88,7 +90,7 @@ export default function AuthScreen() {
       } else {
         setErrorMsg(result.message || 'Google sign-in failed');
       }
-    } catch {
+    } catch (_) {
       setErrorMsg('Google sign-in failed. Please try email login.');
     }
     setLoading(false);
@@ -110,7 +112,7 @@ export default function AuthScreen() {
         if (result.requiresVerification) { setUserEmail(email); setFormType('otp'); setErrorMsg('Please verify your email first.'); }
         else setErrorMsg(result.message || 'Login failed');
       }
-    } catch { setErrorMsg('Failed to connect to the server.'); }
+    } catch (_) { setErrorMsg('Failed to connect to the server.'); }
     setLoading(false);
   };
 
@@ -125,7 +127,7 @@ export default function AuthScreen() {
       const result = await res.json();
       if (res.ok) { setUserEmail(email); setSuccessMsg(result.message); setFormType('otp'); }
       else setErrorMsg(result.message || result.errors?.[0]?.msg || 'Registration failed');
-    } catch { setErrorMsg('Failed to connect to the server.'); }
+    } catch (_) { setErrorMsg('Failed to connect to the server.'); }
     setLoading(false);
   };
 
@@ -142,7 +144,7 @@ export default function AuthScreen() {
         await login(result.data.token, result.data.user);
         // AuthGate in _layout.jsx will redirect to /dashboard automatically
       } else setErrorMsg(result.message || 'Verification failed');
-    } catch { setErrorMsg('Failed to connect to the server.'); }
+    } catch (_) { setErrorMsg('Failed to connect to the server.'); }
     setLoading(false);
   };
 
@@ -152,7 +154,7 @@ export default function AuthScreen() {
       const res = await fetch(ENDPOINTS.resendOtp, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userEmail }) });
       const data = await res.json();
       if (res.ok) setSuccessMsg(data.message); else setErrorMsg(data.message);
-    } catch { setErrorMsg('Connection failed'); }
+    } catch (_) { setErrorMsg('Connection failed'); }
     setLoading(false);
   };
 
@@ -298,8 +300,8 @@ export default function AuthScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={[styles.root, { backgroundColor: C.background, flexDirection: isWide ? 'row' : 'column' }]}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <View style={[styles.root, { backgroundColor: C.background, flexDirection: isWide ? 'row' : 'column', paddingTop: isWide ? 0 : insets.top }]}>
 
         {/* Brand Panel — wide only */}
         {isWide && (

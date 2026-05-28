@@ -3,14 +3,16 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Typography } from '../../constants/typography';
 
 const VARIANTS = {
-  active: { bg: 'rgba(16,185,129,0.10)', color: '#10B981' },
-  scheduled: { bg: 'rgba(99,102,241,0.10)', color: '#6366F1' },
-  completed: { bg: 'rgba(99,102,241,0.10)', color: '#6366F1' },
-  draft: { bg: 'rgba(245,158,11,0.10)', color: '#F59E0B' },
-  success: { bg: 'rgba(16,185,129,0.10)', color: '#10B981' },
-  warning: { bg: 'rgba(245,158,11,0.10)', color: '#F59E0B' },
-  error: { bg: 'rgba(239,68,68,0.10)', color: '#EF4444' },
-  info: { bg: 'rgba(99,102,241,0.10)', color: '#6366F1' },
+  active:    { bg: 'rgba(16,185,129,0.10)',  color: '#10B981' },  // green
+  scheduled: { bg: 'rgba(245,158,11,0.10)',  color: '#F59E0B' },  // amber
+  completed: { bg: 'rgba(100,116,139,0.12)', color: '#94A3B8' },  // muted gray
+  draft:     { bg: 'rgba(59,130,246,0.10)',  color: '#60A5FA' },  // blue
+  ongoing:   { bg: 'rgba(99,102,241,0.12)',  color: '#818CF8' },  // indigo
+  missed:    { bg: 'rgba(239,68,68,0.10)',   color: '#F87171' },  // red
+  success:   { bg: 'rgba(16,185,129,0.10)',  color: '#10B981' },
+  warning:   { bg: 'rgba(245,158,11,0.10)',  color: '#F59E0B' },
+  error:     { bg: 'rgba(239,68,68,0.10)',   color: '#EF4444' },
+  info:      { bg: 'rgba(99,102,241,0.10)',  color: '#6366F1' },
 };
 
 export function Badge({ label, variant = 'info', style = {} }) {

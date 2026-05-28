@@ -21,7 +21,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0D0D1A"
       },
-      "package": "com.examflowai.native"
+      "package": "com.examflowai.native",
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -31,7 +32,7 @@
     "plugins": ["expo-router", "expo-font"],
     "scheme": "com.examflowai.native",
     "extra": {
-      "apiUrl": "http://192.168.1.8:5000",
+      "apiUrl": "http://192.168.1.12:5000",
       "googleClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       "googleExpoClientId": "YOUR_EXPO_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
     }

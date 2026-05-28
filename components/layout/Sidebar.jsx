@@ -19,17 +19,17 @@ const NAV_ITEMS = [
   {
     section: 'Main',
     items: [
-      { label: 'Dashboard', icon: 'grid', route: '/dashboard' },
-      { label: 'My Exams', icon: 'clipboard', route: '/dashboard', badge: '6' },
-      { label: 'Create Exam', icon: 'plus-circle', route: '/dashboard' },
-      { label: 'Join Exam', icon: 'users', route: '/dashboard' },
+      { label: 'Dashboard',   icon: 'grid',        route: '/dashboard' },
+      { label: 'My Exams',    icon: 'clipboard',   route: '/dashboard/exams', badge: '6' },
+      { label: 'Create Exam', icon: 'plus-circle', route: '/dashboard/create-exam' },
+      { label: 'Join Exam',   icon: 'users',       route: '/dashboard/join-exam' },
     ],
   },
   {
     section: 'Analytics',
     items: [
-      { label: 'Results', icon: 'bar-chart-2', route: '/dashboard' },
-      { label: 'Schedule', icon: 'calendar', route: '/dashboard' },
+      { label: 'Results', icon: 'bar-chart-2', route: '/dashboard/results' },
+      { label: 'History', icon: 'clock',       route: '/dashboard/history' },
     ],
   },
   {
@@ -58,11 +58,6 @@ function SidebarContent({ expanded, onClose, isDesktop }) {
     if (!isDesktop && onClose) onClose();
     await logout();
     router.replace('/');
-  };
-
-  const isActive = (route) => {
-    if (route === '/dashboard') return pathname === '/dashboard';
-    return pathname.startsWith(route);
   };
 
   return (
@@ -98,11 +93,10 @@ function SidebarContent({ expanded, onClose, isDesktop }) {
               <Text style={[styles.sectionLabel, { color: C.textSubtle }]}>{section.section}</Text>
             )}
             {section.items.map((item) => {
-              const active = isActive(item.route) && item.label === 'Dashboard' ? pathname === '/dashboard' :
-                item.route === '/dashboard/settings' ? pathname === '/dashboard/settings' : false;
-              const isSettingsActive = item.route === '/dashboard/settings' && pathname.startsWith('/dashboard/settings');
-              const isDashboardActive = item.label === 'Dashboard' && pathname === '/dashboard';
-              const itemActive = isSettingsActive || isDashboardActive;
+              // Dashboard matches only exact /dashboard; all others match prefix
+              const itemActive = item.route === '/dashboard'
+                ? pathname === '/dashboard'
+                : pathname.startsWith(item.route);
 
               return (
                 <TouchableOpacity
@@ -368,11 +362,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     zIndex: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
+    }),
   },
   overlay: {
     flex: 1,
@@ -384,10 +377,9 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: SIDEBAR_EXPANDED,
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 16,
+    ...Platform.select({
+      web: { boxShadow: '4px 0 16px rgba(0,0,0,0.2)' },
+      default: { shadowColor: '#000', shadowOffset: { width: 4, height: 0 }, shadowOpacity: 0.2, shadowRadius: 16, elevation: 16 },
+    }),
   },
 });

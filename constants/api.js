@@ -2,7 +2,7 @@ import Constants from 'expo-constants';
 
 const extra = Constants.expoConfig?.extra || {};
 
-export const API_URL = extra.apiUrl || 'http://192.168.1.8:5000';
+export const API_URL = extra.apiUrl || 'http://192.168.1.12:5000';
 
 export const GOOGLE_CLIENT_ID = extra.googleClientId || '';
 export const GOOGLE_EXPO_CLIENT_ID = extra.googleExpoClientId || '';

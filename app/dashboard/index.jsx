@@ -163,7 +163,7 @@ export default function DashboardIndex() {
 const styles = StyleSheet.create({
   content: { flexGrow: 1, paddingBottom: 40 },
   welcomeBanner: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', marginBottom: 24, position: 'relative' },
-  welcomeGlow: { position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: 70, opacity: 0.7 },
+  welcomeGlow: { position: 'absolute', top: -100, right: -100, width: 140, height: 140, borderRadius: 70, opacity: 0.7 },
   welcomeInner: { padding: 24, justifyContent: 'space-between', alignItems: 'center' },
   welcomeTitle: { fontSize: Typography.size['2xl'], fontFamily: Typography.fontFamily.extraBold, marginBottom: 6 },
   welcomeSub: { fontSize: Typography.size.base, fontFamily: Typography.fontFamily.regular },
