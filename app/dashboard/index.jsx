@@ -27,6 +27,7 @@ const STATS = [
 export default function DashboardIndex() {
   const { isDark } = useTheme();
   const { user, loading } = useAuth();
+  const router = useRouter();
   const C = isDark ? Colors.dark : Colors.light;
 
   // AuthGate in _layout.jsx handles redirect if !user
@@ -99,13 +100,13 @@ export default function DashboardIndex() {
             </Text>
           </View>
           <View style={[styles.welcomeActions, { marginTop: isWide ? 0 : 16 }]}>
-            <TouchableOpacity style={styles.createBtn}>
+            <TouchableOpacity style={styles.createBtn} onPress={() => router.push('/dashboard/create-exam')} activeOpacity={0.85}>
               <LinearGradient colors={['#4F46E5', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.createBtnGrad}>
                 <Feather name="plus" size={15} color="#fff" />
                 <Text style={styles.createBtnText}>Create Exam</Text>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.joinBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderColor: C.borderMedium }]}>
+            <TouchableOpacity style={[styles.joinBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderColor: C.borderMedium }]} onPress={() => router.push('/dashboard/join-exam')} activeOpacity={0.8}>
               <Feather name="users" size={15} color={C.foreground} />
               <Text style={[styles.joinBtnText, { color: C.foreground }]}>Join Exam</Text>
             </TouchableOpacity>

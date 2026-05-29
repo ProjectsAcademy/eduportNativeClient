@@ -22,14 +22,18 @@
         "backgroundColor": "#0D0D1A"
       },
       "package": "com.examflowai.native",
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "versionCode": 2
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "scheme": "com.examflowai.native",
     "extra": {
       "apiUrl": "http://192.168.1.12:5000",

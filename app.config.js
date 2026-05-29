@@ -15,25 +15,26 @@ export default {
     },
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.examflowai.native",
+      bundleIdentifier: "com.examflowai.app",
       infoPlist: {
         CFBundleURLTypes: [
           {
-            CFBundleURLSchemes: ["com.examflowai.native"]
+            CFBundleURLSchemes: ["com.examflowai.app"]
           }
         ]
       }
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#0D0D1A"
+        foregroundImage: "./assets/android-icon-foreground.png",
+        backgroundImage: "./assets/android-icon-background.png",
+        monochromeImage: "./assets/android-icon-monochrome.png",
       },
-      package: "com.examflowai.native",
+      package: "com.examflowai.app",
       intentFilters: [
         {
           action: "VIEW",
-          data: [{ scheme: "com.examflowai.native" }],
+          data: [{ scheme: "com.examflowai.app" }],
           category: ["BROWSABLE", "DEFAULT"]
         }
       ]
@@ -47,13 +48,13 @@ export default {
       "expo-router",
       "expo-font"
     ],
-    scheme: "com.examflowai.native",
+    scheme: "com.examflowai.app",
     extra: {
       apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.12:5000",
       googleClientId: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       googleExpoClientId: "YOUR_EXPO_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       eas: {
-        projectId: "examflow-ai-native"
+        projectId: "10fca0b8-4bcf-4d1e-87ab-6fc2543d9e8b"
       }
     }
   }
