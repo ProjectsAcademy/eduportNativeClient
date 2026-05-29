@@ -54,22 +54,6 @@ const SORT_OPTIONS = [
   { label: 'By Status',     value: 'status' },
 ];
 
-// ── Mock fallback data (matches API ExamListItemDTO shape) ────────────────────
-const MOCK_EXAMS = [
-  { id:'1',  title:'Mathematics Final Exam — Grade 10', subject:'Mathematics', status:'active',    accessCode:'EXM-7492', createdAt:'2026-05-20T10:00:00Z', questionCount:30 },
-  { id:'2',  title:'Physics Midterm — Wave Optics',     subject:'Physics',     status:'scheduled', accessCode:'EXM-3841', createdAt:'2026-05-18T10:00:00Z', questionCount:25 },
-  { id:'3',  title:'English Grammar Quiz',              subject:'English',     status:'draft',     accessCode:'EXM-2290', createdAt:'2026-05-15T10:00:00Z', questionCount:15 },
-  { id:'4',  title:'Chemistry — Organic Reactions',     subject:'Chemistry',   status:'completed', accessCode:'EXM-9021', createdAt:'2026-05-10T10:00:00Z', questionCount:40 },
-  { id:'5',  title:'Biology Unit Test — Cell Division', subject:'Biology',     status:'completed', accessCode:'EXM-5523', createdAt:'2026-05-08T10:00:00Z', questionCount:20 },
-  { id:'6',  title:'History — World War II',            subject:'History',     status:'archived',  accessCode:'EXM-6612', createdAt:'2026-04-30T10:00:00Z', questionCount:18 },
-  { id:'7',  title:'Computer Science — Algorithms',     subject:'CS',          status:'active',    accessCode:'EXM-1134', createdAt:'2026-04-25T10:00:00Z', questionCount:22 },
-  { id:'8',  title:'Economics Quarterly Assessment',    subject:'Economics',   status:'draft',     accessCode:'EXM-4478', createdAt:'2026-04-20T10:00:00Z', questionCount:35 },
-  { id:'9',  title:'Hindi Literature — Poetry',         subject:'Hindi',       status:'scheduled', accessCode:'EXM-8872', createdAt:'2026-04-18T10:00:00Z', questionCount:12 },
-  { id:'10', title:'Geography — Climate & Ecosystems',  subject:'Geography',   status:'completed', accessCode:'EXM-3309', createdAt:'2026-04-10T10:00:00Z', questionCount:28 },
-  { id:'11', title:'Physics — Thermodynamics',          subject:'Physics',     status:'archived',  accessCode:'EXM-7751', createdAt:'2026-03-28T10:00:00Z', questionCount:20 },
-  { id:'12', title:'Accountancy — Balance Sheet',       subject:'Accountancy', status:'active',    accessCode:'EXM-2245', createdAt:'2026-03-20T10:00:00Z', questionCount:16 },
-];
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(iso) {
@@ -117,7 +101,7 @@ export default function HistoryScreen() {
       const res = await examService.getMyExams();
       setExams(res.data?.exams ?? []);
     } catch (_) {
-      setExams(MOCK_EXAMS);
+      setExams([]);
     } finally {
       setLoading(false);
     }

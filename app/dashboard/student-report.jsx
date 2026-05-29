@@ -13,33 +13,8 @@ import { Badge } from '../../components/ui/Badge';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { ScoreRing } from '../../components/ui/charts/ScoreRing';
 import { SkeletonCard } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { examService } from '../../services/examService';
-
-// ── Mock data fallback ────────────────────────────────────────────────────────
-const MOCK_DETAIL = {
-  session: {
-    id: 's1',
-    student: { name: 'Alice Johnson', email: 'alice@example.com', rollNumber: '2024CS001' },
-    score: 43, scorePercentage: 86, passed: true, timeTaken: 3154, violations: [
-      { type: 'tab_switch', severity: 'medium', timestamp: '2026-05-20T10:23:44Z' },
-    ],
-    status: 'submitted',
-    startedAt: '2026-05-20T10:00:00Z',
-    submittedAt: '2026-05-20T10:52:34Z',
-  },
-  exam: { id: 'e1', title: 'Mathematics Final Exam', subject: 'Mathematics' },
-  qaReview: Array.from({ length: 10 }, (_, i) => ({
-    index: i,
-    text: `Question ${i + 1}: Which of the following correctly describes the ${['quadratic formula', 'derivative', 'integral', 'limit', 'matrix multiplication', 'vector dot product', 'probability theorem', 'set theory', 'number theory', 'trigonometric identity'][i]}?`,
-    options: ['Option A — First principle', 'Option B — Secondary effect', 'Option C — Core mechanism', 'Option D — Indirect outcome'],
-    correctAnswer: i % 4,
-    studentAnswer: i % 3 === 0 ? null : (i % 4),
-    isCorrect: i % 3 !== 0 && (i % 4) === (i % 4),
-    subtopic: ['Algebra', 'Calculus', 'Geometry', 'Statistics', 'Trigonometry'][i % 5],
-    bloomsLevel: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'][i % 6],
-    points: 1,
-  })),
-};
 
 const BLOOMS_CONFIG = {
   remember:   { label: 'Remember',   color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
@@ -105,10 +80,10 @@ export default function StudentReportScreen() {
     if (examId && sessionId) {
       examService.getSessionDetail(examId, sessionId)
         .then(res => setDetail(res.data))
-        .catch(() => setDetail(MOCK_DETAIL))
+        .catch(() => setDetail(null))
         .finally(() => setLoading(false));
     } else {
-      setDetail(MOCK_DETAIL);
+      setDetail(null);
       setLoading(false);
     }
   }, [examId, sessionId]);
@@ -121,7 +96,13 @@ export default function StudentReportScreen() {
     );
   }
 
-  if (!detail) return null;
+  if (!detail) return (
+    <EmptyState
+      icon="user"
+      title="Report not found"
+      subtitle="Select a student from the Results screen to view their full report."
+    />
+  );
 
   const { session, exam, qaReview } = detail;
   const answeredCount = (qaReview ?? []).filter(q => q.studentAnswer !== null).length;

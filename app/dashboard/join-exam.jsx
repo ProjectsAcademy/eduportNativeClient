@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Platform, useWindowDimensions, Animated,
@@ -19,18 +19,8 @@ import { examService } from '../../services/examService';
 import { sessionService } from '../../services/sessionService';
 import { storage } from '../../utils/storage';
 
-const SCHEDULE = [
-  { id: '1', title: 'Data Engineer (Copy)', sub: 'No additional information.', date: '5/16/2026', time: '10:12 PM', duration: '60 min', status: 'ongoing' },
-  { id: '2', title: 'Data Engineer',        sub: 'No additional information.', date: '6/16/2026', time: '09:24 AM', duration: '60 min', status: 'upcoming' },
-  { id: '3', title: 'Data Engineer',        sub: 'No additional information.', date: '6/16/2026', time: '08:24 PM', duration: '60 min', status: 'upcoming' },
-  { id: '4', title: 'Data Bricks',          sub: 'No additional information.', date: '5/16/2026', time: '12:24 AM', duration: '60 min', status: 'completed' },
-];
-
-const SCHEDULE_TABS = [
-  { id: 'ongoing',   label: 'Ongoing',   badge: SCHEDULE.filter(s => s.status === 'ongoing').length   },
-  { id: 'upcoming',  label: 'Upcoming',  badge: SCHEDULE.filter(s => s.status === 'upcoming').length  },
-  { id: 'completed', label: 'Completed', badge: SCHEDULE.filter(s => s.status === 'completed').length },
-];
+// Schedule tabs — counts updated dynamically from API history
+const SCHEDULE_TAB_IDS = ['ongoing', 'upcoming', 'completed'];
 
 const CHECKLIST_ITEMS = [
   'I have a stable internet connection',
@@ -64,8 +54,31 @@ export default function JoinExamScreen() {
   // ── Banner code state ────────────────────────────────────────────────────────
   const [bannerCode, setBannerCode] = useState('');
 
-  // ── Schedule tab ─────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState('ongoing');
+  // ── Schedule from API ─────────────────────────────────────────────────────────
+  const [schedule, setSchedule]   = useState([]);
+  const [activeTab, setActiveTab] = useState('completed');
+
+  useEffect(() => {
+    examService.getHistory()
+      .then(res => {
+        // Map session history → schedule items
+        const items = (res.data?.history ?? []).map(h => ({
+          id: h.sessionId,
+          title: h.examTitle,
+          sub: h.subject || 'No subject info.',
+          date: h.submittedAt ? new Date(h.submittedAt).toLocaleDateString('en-US') : '—',
+          time: h.submittedAt ? new Date(h.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—',
+          duration: h.timeTaken ? `${Math.floor(h.timeTaken / 60)} min` : '—',
+          status: 'completed',
+          examId: h.examId,
+          sessionId: h.sessionId,
+          scorePercentage: h.scorePercentage,
+          passed: h.passed,
+        }));
+        setSchedule(items);
+      })
+      .catch(() => setSchedule([]));
+  }, []);
 
   // ── Join modal state ─────────────────────────────────────────────────────────
   const [modalVisible, setModalVisible]   = useState(false);
@@ -224,7 +237,12 @@ export default function JoinExamScreen() {
     );
   };
 
-  const tabData = SCHEDULE.filter(s => s.status === activeTab);
+  const scheduleTabs = SCHEDULE_TAB_IDS.map(id => ({
+    id,
+    label: id.charAt(0).toUpperCase() + id.slice(1),
+    badge: schedule.filter(s => s.status === id).length || undefined,
+  }));
+  const tabData = schedule.filter(s => s.status === activeTab);
 
   return (
     <ScrollView
@@ -295,7 +313,7 @@ export default function JoinExamScreen() {
         </View>
 
         {/* Tabs */}
-        <Tabs tabs={SCHEDULE_TABS} activeTab={activeTab} onChange={setActiveTab} />
+        <Tabs tabs={scheduleTabs} activeTab={activeTab} onChange={setActiveTab} />
 
         {/* Tab content */}
         <View style={{ paddingTop: 4 }}>

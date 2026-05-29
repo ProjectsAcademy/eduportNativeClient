@@ -18,40 +18,6 @@ import { ScoreRing } from '../../components/ui/charts/ScoreRing';
 import { BarChart } from '../../components/ui/charts/BarChart';
 import { examService } from '../../services/examService';
 
-// ── Mock fallback (shown when no API data yet) ──────────────────────────────
-const MOCK_RESULTS = {
-  exam: { id: 'mock', title: 'Mathematics Final Exam', accessCode: 'EXM-1042', questionCount: 50 },
-  stats: { total: 45, avgScore: 78.4, passRate: 82, topScore: 94 },
-  leaderboard: [
-    { rank: 1, sessionId: 's1', name: 'Alice Johnson',   email: 'alice@example.com', scorePercentage: 94, passed: true,  timeTaken: 2903, violations: 0 },
-    { rank: 2, sessionId: 's2', name: 'Bob Williams',    email: 'bob@example.com',   scorePercentage: 87, passed: true,  timeTaken: 3130, violations: 0 },
-    { rank: 3, sessionId: 's3', name: 'Carol Davis',     email: 'carol@example.com', scorePercentage: 79, passed: true,  timeTaken: 3525, violations: 1 },
-    { rank: 4, sessionId: 's4', name: 'David Brown',     email: 'david@example.com', scorePercentage: 72, passed: true,  timeTaken: 3690, violations: 0 },
-    { rank: 5, sessionId: 's5', name: 'Emma Wilson',     email: 'emma@example.com',  scorePercentage: 65, passed: true,  timeTaken: 3312, violations: 2 },
-    { rank: 6, sessionId: 's6', name: 'Frank Miller',    email: 'frank@example.com', scorePercentage: 48, passed: false, timeTaken: 4020, violations: 3 },
-  ],
-  distribution: [
-    { label: '0–20',  value: 1,  color: '#EF4444' },
-    { label: '21–40', value: 3,  color: '#F97316' },
-    { label: '41–60', value: 7,  color: '#F59E0B' },
-    { label: '61–80', value: 20, color: '#10B981' },
-    { label: '81–100',value: 14, color: '#10B981' },
-  ],
-};
-
-const MOCK_HISTORY = [
-  { sessionId: 's1', examTitle: 'Mathematics Final Exam', subject: 'Mathematics', score: 43, scorePercentage: 86, passed: true,  timeTaken: 3154, violations: 0 },
-  { sessionId: 's2', examTitle: 'Physics Midterm Test',   subject: 'Physics',     score: 33, scorePercentage: 82, passed: true,  timeTaken: 2610, violations: 1 },
-];
-
-const MOCK_SUBTOPICS = [
-  { label: 'Algebra',           value: 92, color: '#10B981' },
-  { label: 'Geometry',          value: 85, color: '#10B981' },
-  { label: 'Calculus',          value: 74, color: '#F59E0B' },
-  { label: 'Statistics',        value: 68, color: '#F59E0B' },
-  { label: 'Number Theory',     value: 55, color: '#EF4444' },
-];
-
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatTime(secs) {
@@ -93,8 +59,8 @@ export default function ResultsScreen() {
   const [activeTab, setActiveTab]         = useState('teacher');
   const [myExams, setMyExams]             = useState([]);
   const [selectedExamId, setSelectedExamId] = useState(paramExamId || null);
-  const [results, setResults]             = useState(MOCK_RESULTS);
-  const [history, setHistory]             = useState(MOCK_HISTORY);
+  const [results, setResults]             = useState(null);
+  const [history, setHistory]             = useState([]);
   const [loading, setLoading]             = useState(false);
   const [searchQuery, setSearchQuery]     = useState('');
 
@@ -115,15 +81,15 @@ export default function ResultsScreen() {
     setLoading(true);
     examService.getExamResults(selectedExamId)
       .then(res => setResults(res.data))
-      .catch(() => setResults(MOCK_RESULTS))
+      .catch(() => setResults(null))
       .finally(() => setLoading(false));
   }, [selectedExamId]);
 
   // Load student history
   useEffect(() => {
     examService.getHistory()
-      .then(res => setHistory(res.data?.history ?? MOCK_HISTORY))
-      .catch(() => setHistory(MOCK_HISTORY));
+      .then(res => setHistory(res.data?.history ?? []))
+      .catch(() => setHistory([]));
   }, []);
 
   const filteredLeaderboard = (results?.leaderboard ?? []).filter(s =>
@@ -268,20 +234,6 @@ export default function ResultsScreen() {
               </View>
             </View>
           </View>
-        </View>
-
-        {/* Performance breakdown by subtopic */}
-        <View style={[S.card, { backgroundColor: C.card, borderColor: C.border }]}>
-          <Text style={[S.cardTitle, { color: C.foreground, marginBottom: 16 }]}>📊 Performance Breakdown</Text>
-          {MOCK_SUBTOPICS.map((s, i) => (
-            <View key={i} style={[S.subtopicRow, { borderBottomColor: C.border }]}>
-              <Text style={[S.subtopicLabel, { color: C.textSubtle }]} numberOfLines={1}>{s.label}</Text>
-              <View style={{ flex: 1 }}>
-                <ProgressBar value={s.value} color={s.color} height={7} />
-              </View>
-              <Text style={[S.subtopicPct, { color: s.color }]}>{s.value}%</Text>
-            </View>
-          ))}
         </View>
 
         {/* Recent exam history */}

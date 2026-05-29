@@ -3,6 +3,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Animated,
   ScrollView, Modal, Platform, useWindowDimensions, Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
@@ -46,6 +47,13 @@ function SidebarContent({ expanded, onClose, isDesktop }) {
   const router = useRouter();
   const pathname = usePathname();
   const C = isDark ? Colors.dark : Colors.light;
+  const insets = useSafeAreaInsets();
+
+  // Safe-area top inset — iOS notch / Dynamic Island only.
+  // • Desktop  → 0 (sidebar is inside the app's own SafeAreaView)
+  // • Android  → 0 (Android modal does not overlap the status bar the same way)
+  // • iOS mobile drawer → insets.top (44–59 px depending on device)
+  const topInset = (!isDesktop && Platform.OS === 'ios') ? insets.top : 0;
 
   const initials = ((user?.firstName?.charAt(0) || '') + (user?.lastName?.charAt(0) || '')).toUpperCase();
 
@@ -62,8 +70,8 @@ function SidebarContent({ expanded, onClose, isDesktop }) {
 
   return (
     <View style={[styles.sidebar, { backgroundColor: C.sidebarBg, borderRightColor: C.sidebarBorder, width: isDesktop ? (expanded ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED) : SIDEBAR_EXPANDED }]}>
-      {/* Header */}
-      <View style={[styles.sidebarHeader, { borderBottomColor: C.border }]}>
+      {/* Header — paddingTop uses live inset; no hardcoded values */}
+      <View style={[styles.sidebarHeader, { borderBottomColor: C.border, paddingTop: topInset }]}>
         <View style={styles.logoRow}>
           <LinearGradient
             colors={['#4F46E5', '#7C3AED']}
@@ -224,7 +232,7 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   sidebarHeader: {
-    height: 64,
+    minHeight: 64,        // grows with paddingTop on iOS; fixed 64px everywhere else
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',

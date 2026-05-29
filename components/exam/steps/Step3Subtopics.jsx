@@ -109,6 +109,9 @@ export function Step3Subtopics({ form, onUpdate }) {
             value={s.name}
             onChangeText={v => updateName(s.id, v)}
             style={[styles.nameInput, { color: C.foreground, outlineStyle: 'none' }]}
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
           />
           <View style={[styles.pctWrap, { backgroundColor: C.surface2, borderColor: C.borderMedium }]}>
             <TextInput
@@ -117,6 +120,8 @@ export function Step3Subtopics({ form, onUpdate }) {
               keyboardType="number-pad"
               style={[styles.pctInput, { color: C.foreground, outlineStyle: 'none' }]}
               maxLength={3}
+              autoComplete="off"
+              importantForAutofill="no"
             />
             <Text style={[styles.pctSign, { color: C.textSubtle }]}>%</Text>
           </View>

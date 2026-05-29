@@ -147,7 +147,7 @@ export default function ExamsScreen() {
           <DropdownMenu
             trigger={<Feather name="more-vertical" size={16} color={C.textMuted} />}
             items={[
-              { label: 'Edit',    icon: 'edit-2',      onPress: () => showToast('Edit coming in Phase 4', 'info') },
+              { label: 'Edit',    icon: 'edit-2',      onPress: () => router.push({ pathname: '/dashboard/create-exam', params: { examId: item.id } }) },
               { label: 'Share',   icon: 'share-2',     onPress: () => setShareExam(item) },
               { label: 'Results', icon: 'bar-chart-2', onPress: () => router.push({ pathname: '/dashboard/results', params: { examId: item.id } }) },
               { divider: true },

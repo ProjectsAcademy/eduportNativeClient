@@ -244,3 +244,101 @@ Before implementing changes, always provide:
 4. Regression risk analysis
 
 Implementation comes AFTER analysis.
+
+# Dropdown / Select Architecture Rules
+
+## React Native Web Dropdown Policy
+
+Native browser select elements MUST NOT be used for production UI that requires:
+
+* dark mode support
+* light mode support
+* custom styling
+* design system consistency
+* visual parity with mobile
+* cross-platform behavior
+
+Reason:
+
+On React Native Web, native browser select dropdown popups are rendered by the browser/OS UI layer and are not fully controlled by React, RN Web, CSS, theme providers, or design tokens.
+
+The opened dropdown popup may ignore:
+
+* theme colors
+* background colors
+* spacing
+* border radius
+* typography
+* hover styles
+* selected state styling
+
+As a result, browser-native select elements cannot guarantee visual parity across:
+
+* iOS
+* Android
+* Web
+
+---
+
+## Required Implementation
+
+For application dropdowns use a fully controlled custom component:
+
+Trigger:
+
+* Pressable
+* TouchableOpacity
+
+Popup:
+
+* Modal
+* Portal
+* Popover
+* Bottom Sheet
+
+Options:
+
+* FlatList
+* ScrollView
+* Pressable rows
+
+All visual states must come from shared theme tokens.
+
+---
+
+## Verification Requirements
+
+A dropdown implementation is NOT considered complete until all states are verified:
+
+Closed state
+Open state
+Selected state
+Hover state (Web)
+Keyboard navigation (Web)
+Light mode
+Dark mode
+iOS
+Android
+React Native Web
+
+---
+
+## Debugging Rule
+
+When dropdown styling issues occur:
+
+DO NOT:
+
+* patch colors blindly
+* add zIndex fixes
+* add wrapper layers
+* modify random theme tokens
+
+FIRST determine:
+
+1. Is the dropdown native or custom?
+2. Is the popup rendered inside React?
+3. Is the popup rendered by browser/OS?
+4. Can the popup be styled through theme tokens?
+
+Only then implement a fix.

@@ -69,6 +69,9 @@ export function Step1Details({ form, onUpdate, onNext, onManual }) {
           multiline
           numberOfLines={3}
           style={[styles.textarea, { color: C.foreground, borderColor: C.borderMedium, backgroundColor: C.surface2 }]}
+          autoComplete="off"
+          textContentType="none"
+          importantForAutofill="no"
         />
       </View>
 

@@ -21,7 +21,13 @@ export default {
           {
             CFBundleURLSchemes: ["com.examflowai.app"]
           }
-        ]
+        ],
+        NSPhotoLibraryUsageDescription:
+          "ExamFlow AI needs access to your photo library to update your profile picture.",
+        NSCameraUsageDescription:
+          "ExamFlow AI needs camera access to take a profile photo.",
+        NSPhotoLibraryAddUsageDescription:
+          "ExamFlow AI may save processed images to your photo library.",
       }
     },
     android: {
@@ -50,7 +56,7 @@ export default {
     ],
     scheme: "com.examflowai.app",
     extra: {
-      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.12:5000",
+      apiUrl: process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.11:5000",
       googleClientId: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       googleExpoClientId: "YOUR_EXPO_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
       eas: {

@@ -14,7 +14,7 @@ function generateCode() {
   return 'EXM-' + Array.from({ length: 4 }, () => alpha[Math.floor(Math.random() * alpha.length)]).join('');
 }
 
-export function Step8Publish({ form, onUpdate, onPublish, onDone }) {
+export function Step8Publish({ form, onUpdate, onPublish, onSaveDraft, draftSaving = false, onDone }) {
   const { isDark } = useTheme();
   const C = isDark ? Colors.dark : Colors.light;
   const { showToast } = useToast();
@@ -81,12 +81,13 @@ export function Step8Publish({ form, onUpdate, onPublish, onDone }) {
           </View>
           <View style={styles.actions}>
             <TouchableOpacity
-              onPress={() => showToast('Draft saved!', 'info')}
-              style={[styles.draftBtn, { backgroundColor: C.surface2, borderColor: C.borderMedium }]}
+              onPress={onSaveDraft}
+              disabled={draftSaving}
+              style={[styles.draftBtn, { backgroundColor: C.surface2, borderColor: C.borderMedium, opacity: draftSaving ? 0.6 : 1 }]}
               activeOpacity={0.8}
             >
-              <Feather name="save" size={15} color={C.textMuted} />
-              <Text style={[styles.draftBtnText, { color: C.textMuted }]}>Save Draft</Text>
+              <Feather name={draftSaving ? 'loader' : 'save'} size={15} color={C.textMuted} />
+              <Text style={[styles.draftBtnText, { color: C.textMuted }]}>{draftSaving ? 'Saving…' : 'Save Draft'}</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handlePublish} disabled={publishing} style={[styles.publishBtn, { flex: 1, opacity: publishing ? 0.7 : 1 }]} activeOpacity={0.85}>
               <LinearGradient colors={['#4F46E5', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[StyleSheet.absoluteFillObject, { borderRadius: 12 }]} />
@@ -117,7 +118,7 @@ export function Step8Publish({ form, onUpdate, onPublish, onDone }) {
               style={[styles.codeBox, { backgroundColor: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)', borderColor: 'rgba(99,102,241,0.25)' }]}
               activeOpacity={0.7}
             >
-              <Text style={styles.codeText}>{displayCode}</Text>
+              <Text style={styles.codeText} numberOfLines={1} adjustsFontSizeToFit>{displayCode}</Text>
               <View style={[styles.copyChip, { backgroundColor: 'rgba(99,102,241,0.15)' }]}>
                 <Feather name="copy" size={13} color="#818CF8" />
                 <Text style={styles.copyChipText}>Copy</Text>
@@ -164,8 +165,10 @@ export function Step8Publish({ form, onUpdate, onPublish, onDone }) {
 const styles = StyleSheet.create({
   card: { borderRadius: 16, borderWidth: 1, padding: 20, gap: 18 },
   cardTitle: { fontSize: Typography.size.lg, fontFamily: Typography.fontFamily.bold },
-  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  summaryItem: { flex: 1, minWidth: 100, alignItems: 'center', gap: 4, padding: 14, borderRadius: 12, borderWidth: 1 },
+  // flexWrap ensures the grid wraps on narrow screens (320–360px)
+  // minWidth: 80 instead of 100 so 4 items fit comfortably at 320px
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  summaryItem: { flex: 1, minWidth: 80, alignItems: 'center', gap: 4, padding: 12, borderRadius: 12, borderWidth: 1 },
   summaryVal: { fontSize: Typography.size.xl, fontFamily: Typography.fontFamily.extraBold },
   summaryLabel: { fontSize: 10, fontFamily: Typography.fontFamily.medium },
   actions: { flexDirection: 'row', gap: 12 },
@@ -179,9 +182,28 @@ const styles = StyleSheet.create({
   successTitle: { fontSize: Typography.size.xl, fontFamily: Typography.fontFamily.extraBold },
   successSub: { fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.regular, textAlign: 'center', lineHeight: 20 },
   codeLabel: { fontSize: 10, fontFamily: Typography.fontFamily.bold, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 },
-  codeBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 14, borderWidth: 1, paddingVertical: 16, paddingHorizontal: 20 },
-  codeText: { fontSize: 28, fontFamily: Typography.fontFamily.extraBold, color: '#818CF8', letterSpacing: 6 },
-  copyChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  codeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+  },
+  // RC-2 FIX: flexShrink:1 + adjustsFontSizeToFit lets the code shrink on narrow screens
+  // instead of overflowing. minimumFontScale ensures it never drops below 60% (≈16px).
+  codeText: {
+    flexShrink: 1,
+    fontSize: 26,
+    fontFamily: Typography.fontFamily.extraBold,
+    color: '#818CF8',
+    letterSpacing: 4,
+    adjustsFontSizeToFit: true,
+    minimumFontScale: 0.6,
+    numberOfLines: 1,
+  },
+  copyChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, flexShrink: 0, marginLeft: 8 },
   copyChipText: { fontSize: Typography.size.xs, fontFamily: Typography.fontFamily.semiBold, color: '#818CF8' },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
   linkText: { flex: 1, fontSize: Typography.size.xs, fontFamily: Typography.fontFamily.medium },

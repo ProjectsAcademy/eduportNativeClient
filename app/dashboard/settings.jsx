@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Alert, Platform, useWindowDimensions, Share,
+  Alert, Platform, useWindowDimensions, Share, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -18,6 +18,9 @@ import { Select } from '../../components/ui/Select';
 import { Toggle } from '../../components/ui/Toggle';
 import { ProgressBar } from '../../components/ui/ProgressBar';
 import { ENDPOINTS, API_URL } from '../../constants/api';
+import { pickFromGallery, takePhoto, getMediaErrorMessage } from '../../services/media/mediaPickerService';
+import { geminiService } from '../../services/ai/geminiService';
+import { Skeleton } from '../../components/ui/Skeleton';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -28,7 +31,7 @@ const TABS = [
   { id: 'security',      label: 'Security',         icon: 'shield' },
   { id: 'organization',  label: 'Organization',     icon: 'home' },
   { id: 'billing',       label: 'Billing & Plan',   icon: 'credit-card' },
-  { id: 'api',           label: 'API & Integrations', icon: 'code' },
+  { id: 'api',           label: 'AI Integration',     icon: 'cpu' },
 ];
 
 const ROLE_OPTIONS = [
@@ -184,17 +187,145 @@ export default function SettingsScreen() {
     finally { setOrgSaving(false); }
   };
 
-  // ── API key state ─────────────────────────────────────────────────────────────
-  const [apiKeyVisible, setApiKeyVisible] = useState(false);
-  const MOCK_KEY = 'ef_live_sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  // ── Profile photo upload ──────────────────────────────────────────────────────
+  const [photoUploading, setPhotoUploading] = useState(false);
 
-  const copyApiKey = async () => {
-    if (Platform.OS === 'web' && navigator?.clipboard) {
-      await navigator.clipboard.writeText(MOCK_KEY).catch(() => {});
-    } else {
-      try { await Share.share({ message: `API key: ${MOCK_KEY}` }); } catch (_) {}
+  const handlePhotoAction = () => {
+    if (Platform.OS === 'web') {
+      // Web: open hidden file input via gallery picker
+      pickFromGallery()
+        .then(result => result && uploadPhoto(result))
+        .catch(err => showToast(getMediaErrorMessage(err), 'error'));
+      return;
     }
-    showToast('API key copied!', 'success');
+    Alert.alert('Profile Photo', 'Choose an option', [
+      { text: 'Take Photo',           onPress: () => capturePhoto() },
+      { text: 'Choose from Gallery',  onPress: () => chooseFromGallery() },
+      { text: 'Cancel',               style: 'cancel' },
+    ]);
+  };
+
+  const capturePhoto = async () => {
+    try {
+      const result = await takePhoto();
+      if (result) await uploadPhoto(result);
+    } catch (err) { showToast(getMediaErrorMessage(err), 'error'); }
+  };
+
+  const chooseFromGallery = async () => {
+    try {
+      const result = await pickFromGallery();
+      if (result) await uploadPhoto(result);
+    } catch (err) { showToast(getMediaErrorMessage(err), 'error'); }
+  };
+
+  const uploadPhoto = async (mediaResult) => {
+    setPhotoUploading(true);
+    try {
+      const res = await fetch(ENDPOINTS.profile, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body:    JSON.stringify({ photo: mediaResult.base64 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await updateUser(data.data.user);
+        showToast('Profile photo updated!', 'success');
+      } else {
+        showToast(data.message || 'Upload failed', 'error');
+      }
+    } catch (_) { showToast('Upload failed. Please try again.', 'error'); }
+    finally     { setPhotoUploading(false); }
+  };
+
+  // ── Gemini API key state ───────────────────────────────────────────────────────
+  const [geminiKey,        setGeminiKey]        = useState('');
+  const [geminiKeyVisible, setGeminiKeyVisible] = useState(false);
+  const [geminiStatus,     setGeminiStatus]     = useState(null);
+  const [geminiSaving,     setGeminiSaving]     = useState(false);
+  // RC-1 fix: separate loading states so key card and usage card are independent
+  const [statusLoading,    setStatusLoading]    = useState(false);
+  const [usageLoading,     setUsageLoading]     = useState(false);
+  const [usageData,        setUsageData]        = useState(null);
+  // RC-2 fix: staleness cache — only refetch if data is > 60s old
+  const geminiLoadedAt = useRef(0);
+
+  const loadGeminiStatus = useCallback(async (force = false) => {
+    const now = Date.now();
+    if (!force && geminiLoadedAt.current > 0 && now - geminiLoadedAt.current < 60_000) {
+      // Data is fresh — skip the network round-trips
+      return;
+    }
+
+    // RC-1 fix: fire both requests in parallel, each has its own loading state
+    setStatusLoading(true);
+    setUsageLoading(true);
+
+    const [statusResult, usageResult] = await Promise.allSettled([
+      geminiService.getKeyStatus(),
+      geminiService.getUsage(),
+    ]);
+
+    if (statusResult.status === 'fulfilled') setGeminiStatus(statusResult.value.data);
+    else setGeminiStatus(null);
+    setStatusLoading(false);
+
+    if (usageResult.status === 'fulfilled') setUsageData(usageResult.value.data?.usage ?? null);
+    setUsageLoading(false);
+
+    geminiLoadedAt.current = Date.now();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'api') loadGeminiStatus();
+  }, [activeTab, loadGeminiStatus]);
+
+  const handleSaveGeminiKey = async () => {
+    if (!geminiKey.trim()) { showToast('Please enter an API key', 'warning'); return; }
+    setGeminiSaving(true);
+    try {
+      // RC-3: save responds instantly; isValid is null ('validating…')
+      const res = await geminiService.saveKey(geminiKey.trim());
+      setGeminiStatus({ hasKey: true, ...res.data });
+      setGeminiKey('');
+      geminiLoadedAt.current = 0;
+      showToast('API key saved. Validating in the background…', 'info');
+
+      // Poll once after 4 seconds to pick up the validation result
+      setTimeout(async () => {
+        try {
+          const poll = await geminiService.getKeyStatus();
+          setGeminiStatus(poll.data);
+          if (poll.data?.isValid === true)  showToast('✓ API key verified!',            'success');
+          if (poll.data?.isValid === false) showToast('⚠ Key validation failed.',       'warning');
+        } catch (_) {}
+      }, 4_000);
+
+    } catch (err) { showToast(err.message || 'Failed to save key', 'error'); }
+    finally      { setGeminiSaving(false); }
+  };
+
+  const handleDeleteGeminiKey = () => {
+    Alert.alert('Remove API Key', 'This will delete your stored Gemini API key. AI features will stop working.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        try {
+          await geminiService.deleteKey();
+          setGeminiStatus({ hasKey: false });
+          setUsageData(null);
+          geminiLoadedAt.current = 0;
+          showToast('API key removed', 'success');
+        } catch (err) { showToast(err.message || 'Failed to remove key', 'error'); }
+      }},
+    ]);
+  };
+
+  const copyGeminiPreview = async () => {
+    const preview = geminiStatus?.keyPreview ?? '';
+    if (Platform.OS === 'web' && navigator?.clipboard) {
+      await navigator.clipboard.writeText(preview).catch(() => {});
+    }
+    showToast('Key preview copied!', 'info');
   };
 
   // ── Delete account ────────────────────────────────────────────────────────────
@@ -232,27 +363,39 @@ export default function SettingsScreen() {
           {/* Avatar */}
           <View style={S.avatarSection}>
             <View style={S.avatarWrap}>
-              <LinearGradient colors={['#6366F1', '#7C3AED']} style={S.avatar}>
-                <Text style={S.avatarText}>
-                  {((firstName?.charAt(0) || '') + (lastName?.charAt(0) || '')).toUpperCase() || '?'}
-                </Text>
-              </LinearGradient>
+              {user?.photo ? (
+                <Image
+                  source={{ uri: user.photo }}
+                  style={[S.avatar, { borderRadius: 36 }]}
+                />
+              ) : (
+                <LinearGradient colors={['#6366F1', '#7C3AED']} style={S.avatar}>
+                  <Text style={S.avatarText}>
+                    {((firstName?.charAt(0) || '') + (lastName?.charAt(0) || '')).toUpperCase() || '?'}
+                  </Text>
+                </LinearGradient>
+              )}
               <TouchableOpacity
-                onPress={() => showToast('Photo upload requires expo-image-picker (Phase 10)', 'info')}
-                style={[S.avatarOverlay, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+                onPress={handlePhotoAction}
+                disabled={photoUploading}
+                style={[S.avatarOverlay, { backgroundColor: 'rgba(0,0,0,0.50)', opacity: photoUploading ? 0.6 : 1 }]}
+                activeOpacity={0.8}
               >
-                <Feather name="camera" size={18} color="#fff" />
+                <Feather name={photoUploading ? 'loader' : 'camera'} size={18} color="#fff" />
               </TouchableOpacity>
             </View>
             <View style={{ marginLeft: 16 }}>
               <Text style={[S.avatarName, { color: C.foreground }]}>{firstName} {lastName}</Text>
-              <Text style={[S.avatarEmail, { color: C.textSubtle }]}>{email}</Text>
+              <Text style={[S.avatarEmail, { color: C.textSubtle }]}>{email || 'No email'}</Text>
               <TouchableOpacity
-                onPress={() => showToast('Photo upload requires expo-image-picker (Phase 10)', 'info')}
+                onPress={handlePhotoAction}
+                disabled={photoUploading}
                 style={[S.changePhotoBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', borderColor: C.border }]}
                 activeOpacity={0.7}
               >
-                <Text style={[S.changePhotoBtnText, { color: C.textMuted }]}>Change Photo</Text>
+                <Text style={[S.changePhotoBtnText, { color: C.textMuted }]}>
+                  {photoUploading ? 'Uploading…' : 'Change Photo'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -266,7 +409,7 @@ export default function SettingsScreen() {
             </View>
           </View>
 
-          <Input label="Email Address" value={email} disabled icon={<Feather name="mail" size={15} color={C.textSubtle} />} />
+          <Input label="Email Address" value={email} disabled icon={<Feather name="mail" size={15} color={C.textSubtle} />} autoComplete="email" />
 
           <View style={[S.row2, { flexDirection: isWide ? 'row' : 'column', marginTop: 14 }]}>
             <View style={{ flex: 1 }}>
@@ -546,44 +689,186 @@ export default function SettingsScreen() {
         </View>
       );
 
-      // ──────────────────────────────────────────────────────────── API ─────────
+      // ───────────────────────────────────────────────────── AI INTEGRATION ─────
       case 'api': return (
         <View style={{ gap: 16 }}>
-          <Card style={{ padding: 24 }}>
-            <Text style={[S.tabTitle, { color: C.foreground }]}>⚡ API Key</Text>
-            <Text style={[S.tabDesc, { color: C.textMuted }]}>Use this key to authenticate requests to the ExamFlow AI API.</Text>
 
-            <View style={[S.apiKeyBox, { backgroundColor: C.surface2, borderColor: C.border }]}>
+          {/* ── Gemini API Configuration ── */}
+          <Card style={{ padding: 24 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
               <View style={{ flex: 1 }}>
-                <Text style={[S.apiKeyLabel, { color: C.textSubtle }]}>SECRET KEY</Text>
-                <Text style={[S.apiKeyVal, { color: C.foreground }]} numberOfLines={1}>
-                  {apiKeyVisible ? MOCK_KEY : '••••••••••••••••••••••••••••••••••••'}
+                <Text style={[S.tabTitle, { color: C.foreground }]}>🤖 Gemini API Configuration</Text>
+                <Text style={[S.tabDesc, { color: C.textMuted }]}>
+                  Connect your Google Gemini API key to enable AI-powered exam generation, question creation, and intelligent assessments.
                 </Text>
               </View>
-              <TouchableOpacity onPress={() => setApiKeyVisible(!apiKeyVisible)} style={S.apiIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name={apiKeyVisible ? 'eye-off' : 'eye'} size={16} color={C.textMuted} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={copyApiKey} style={S.apiIconBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Feather name="copy" size={16} color={C.textMuted} />
-              </TouchableOpacity>
+              {/* Validation badge */}
+              {geminiStatus?.hasKey && (
+                <View style={[S.validBadge, {
+                  backgroundColor: geminiStatus.isValid ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.10)',
+                  borderColor: geminiStatus.isValid ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.25)',
+                }]}>
+                  <Feather name={geminiStatus.isValid ? 'check-circle' : 'x-circle'} size={12} color={geminiStatus.isValid ? '#10B981' : '#EF4444'} />
+                  <Text style={[S.validBadgeText, { color: geminiStatus.isValid ? '#10B981' : '#EF4444' }]}>
+                    {geminiStatus.isValid ? 'Verified' : 'Invalid'}
+                  </Text>
+                </View>
+              )}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-              <Button title="Regenerate Key" onPress={() => showToast('New API key generated!', 'success')} variant="secondary" fullWidth={false} style={{ paddingHorizontal: 20 }} />
-            </View>
+            {statusLoading ? (
+              <View style={{ gap: 10, marginTop: 8 }}>
+                <Skeleton height={48} borderRadius={12} />
+                <Skeleton height={20} borderRadius={6} width="60%" />
+              </View>
+            ) : (
+              <View style={{ gap: 14 }}>
+                {/* Current key display */}
+                {geminiStatus?.hasKey && (
+                  <View style={[S.currentKeyBox, { backgroundColor: isDark ? 'rgba(99,102,241,0.08)' : 'rgba(99,102,241,0.05)', borderColor: 'rgba(99,102,241,0.2)' }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[S.apiKeyLabel, { color: C.textSubtle }]}>CURRENT KEY</Text>
+                      <Text style={[S.apiKeyVal, { color: '#818CF8' }]}>{geminiStatus.keyPreview ?? '••••••••'}</Text>
+                    </View>
+                    <TouchableOpacity onPress={copyGeminiPreview} style={S.apiIconBtn}>
+                      <Feather name="copy" size={15} color="#818CF8" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleDeleteGeminiKey} style={S.apiIconBtn}>
+                      <Feather name="trash-2" size={15} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Validation message */}
+                {geminiStatus?.validationMessage ? (
+                  <View style={[S.validationMsg, {
+                    backgroundColor: geminiStatus.isValid ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)',
+                    borderColor:     geminiStatus.isValid ? 'rgba(16,185,129,0.2)'  : 'rgba(239,68,68,0.2)',
+                  }]}>
+                    <Feather name={geminiStatus.isValid ? 'check' : 'alert-circle'} size={14} color={geminiStatus.isValid ? '#10B981' : '#EF4444'} />
+                    <Text style={[S.validationMsgText, { color: geminiStatus.isValid ? '#10B981' : '#EF4444' }]}>
+                      {geminiStatus.validationMessage}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {/* New key input */}
+                <View style={{ gap: 6 }}>
+                  <Text style={[S.apiKeyLabel, { color: C.textSubtle }]}>
+                    {geminiStatus?.hasKey ? 'REPLACE API KEY' : 'ENTER API KEY'}
+                  </Text>
+                  <View style={[S.apiKeyBox, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                    <Input
+                      value={geminiKey}
+                      onChangeText={setGeminiKey}
+                      placeholder="AIzaSy••••••••••••••••••••••••••"
+                      secureTextEntry={!geminiKeyVisible}
+                      // CLAUDE.md Rule #3: browsers ignore autoComplete="off" on type="password".
+                      // "new-password" prevents credential managers from offering to save/fill.
+                      autoComplete="new-password"
+                      style={{ flex: 1, marginBottom: 0 }}
+                      inputStyle={{
+                        fontFamily: Typography.fontFamily.medium,
+                        letterSpacing: geminiKeyVisible ? 0 : 2,
+                        // CLAUDE.md Rule #2: ensure focus outline is suppressed for this non-auth field
+                        outlineStyle: 'none',
+                      }}
+                    />
+                    <TouchableOpacity
+                      onPress={() => setGeminiKeyVisible(v => !v)}
+                      style={S.apiIconBtn}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Feather name={geminiKeyVisible ? 'eye-off' : 'eye'} size={16} color={C.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Helper */}
+                <View style={[S.helperBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: C.border }]}>
+                  <Feather name="info" size={13} color={C.textSubtle} />
+                  <Text style={[S.helperText, { color: C.textSubtle }]}>
+                    Get your free Gemini API key at{' '}
+                    <Text style={{ color: '#818CF8' }}>aistudio.google.com/api-keys</Text>
+                    {'\n'}Your key is encrypted with AES-256-GCM before storage.
+                  </Text>
+                </View>
+
+                {/* Save button */}
+                <Button
+                  title={geminiSaving ? 'Saving & Validating…' : geminiStatus?.hasKey ? 'Update API Key' : 'Save API Key'}
+                  onPress={handleSaveGeminiKey}
+                  loading={geminiSaving}
+                  disabled={!geminiKey.trim()}
+                  variant="primary"
+                  icon={!geminiSaving && <Feather name="shield" size={15} color="#fff" />}
+                />
+              </View>
+            )}
           </Card>
 
+          {/* ── Usage Analytics ── */}
           <Card style={{ padding: 24 }}>
-            <Text style={[S.tabTitle, { color: C.foreground }]}>📖 Base URL</Text>
-            <View style={[S.apiKeyBox, { backgroundColor: C.surface2, borderColor: C.border }]}>
-              <Text style={[S.apiKeyVal, { color: '#818CF8', flex: 1 }]} numberOfLines={1}>{API_URL}/api</Text>
-              <TouchableOpacity style={S.apiIconBtn} onPress={async () => {
-                if (Platform.OS === 'web' && navigator?.clipboard) await navigator.clipboard.writeText(`${API_URL}/api`).catch(() => {});
-                showToast('API URL copied!', 'success');
-              }}>
-                <Feather name="copy" size={16} color={C.textMuted} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={[S.tabTitle, { color: C.foreground, marginBottom: 0 }]}>📊 API Usage</Text>
+              <TouchableOpacity onPress={() => loadGeminiStatus(true)} activeOpacity={0.7}>
+                <Feather name="refresh-cw" size={15} color={C.textSubtle} />
               </TouchableOpacity>
             </View>
+
+            {usageLoading ? (
+              <View style={{ gap: 10 }}>
+                {[1,2,3].map(i => <Skeleton key={i} height={44} borderRadius={10} />)}
+              </View>
+            ) : !usageData ? (
+              <View style={{ alignItems: 'center', paddingVertical: 24, gap: 8 }}>
+                <Feather name="bar-chart-2" size={28} color={C.textSubtle} />
+                <Text style={[S.helperText, { color: C.textSubtle, textAlign: 'center' }]}>
+                  Usage data appears here after your first AI request.
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: 16 }}>
+                {/* Today vs 30-day */}
+                {[
+                  { label: 'Today',        data: usageData.today },
+                  { label: 'Last 30 Days', data: usageData.last30 },
+                ].map(({ label, data }) => (
+                  <View key={label} style={[S.usageSection, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                    <Text style={[S.usageSectionLabel, { color: C.textSubtle }]}>{label.toUpperCase()}</Text>
+                    <View style={S.usageGrid}>
+                      {[
+                        { label: 'Requests',    value: String(data.requestCount),     color: '#818CF8' },
+                        { label: 'Input Tokens', value: data.inputTokens.toLocaleString(), color: '#10B981' },
+                        { label: 'Output Tokens',value: data.outputTokens.toLocaleString(),color: '#F59E0B' },
+                        { label: 'Est. Cost',    value: `$${data.estimatedCostUsd.toFixed(4)}`,  color: '#EF4444' },
+                      ].map(s => (
+                        <View key={s.label} style={S.usageStat}>
+                          <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
+                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>{s.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    {usageData.last30.totalTokens > 0 && label === 'Last 30 Days' && (
+                      <View style={{ marginTop: 10, gap: 4 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>Token usage</Text>
+                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>
+                            {data.totalTokens.toLocaleString()} tokens used
+                          </Text>
+                        </View>
+                        <ProgressBar value={Math.min(100, (data.totalTokens / 1_000_000) * 100)} color="#818CF8" height={7} />
+                        <Text style={[S.helperText, { color: C.textSubtle }]}>vs. 1M token reference threshold</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                <Text style={[S.helperText, { color: C.textSubtle, textAlign: 'right' }]}>
+                  Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            )}
           </Card>
         </View>
       );
@@ -721,9 +1006,24 @@ const S = StyleSheet.create({
   upgradeBanner: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 14, borderWidth: 1, padding: 16, flexWrap: 'wrap' },
   upgradeTitle:  { fontSize: Typography.size.base, fontFamily: Typography.fontFamily.bold, marginBottom: 3 },
   upgradeDesc:   { fontSize: Typography.size.xs, fontFamily: Typography.fontFamily.regular, lineHeight: 17 },
-  // API
-  apiKeyBox:     { borderRadius: 12, borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
-  apiKeyLabel:   { fontSize: 9, fontFamily: Typography.fontFamily.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
-  apiKeyVal:     { fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.medium },
-  apiIconBtn:    { padding: 4 },
+  // API / Gemini
+  apiKeyBox:        { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  apiKeyLabel:      { fontSize: 9, fontFamily: Typography.fontFamily.bold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  apiKeyVal:        { fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.bold, letterSpacing: 1 },
+  apiIconBtn:       { padding: 6 },
+  // Gemini specific
+  validBadge:       { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, marginLeft: 10 },
+  validBadgeText:   { fontSize: 10, fontFamily: Typography.fontFamily.bold },
+  currentKeyBox:    { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1 },
+  validationMsg:    { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 10, borderWidth: 1 },
+  validationMsgText:{ flex: 1, fontSize: Typography.size.xs, fontFamily: Typography.fontFamily.medium, lineHeight: 17 },
+  helperBox:        { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 10, borderWidth: 1 },
+  helperText:       { flex: 1, fontSize: Typography.size.xs, fontFamily: Typography.fontFamily.regular, lineHeight: 17 },
+  // Usage analytics
+  usageSection:     { borderRadius: 12, borderWidth: 1, padding: 14 },
+  usageSectionLabel:{ fontSize: 9, fontFamily: Typography.fontFamily.bold, letterSpacing: 0.8, marginBottom: 10 },
+  usageGrid:        { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  usageStat:        { minWidth: 80, gap: 3 },
+  usageStatVal:     { fontSize: Typography.size.lg, fontFamily: Typography.fontFamily.extraBold },
+  usageStatLabel:   { fontSize: 9, fontFamily: Typography.fontFamily.medium },
 });

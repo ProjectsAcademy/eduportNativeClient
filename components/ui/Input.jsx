@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TextInput, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/colors';
@@ -52,12 +52,11 @@ export function Input({
         ]}
       >
         {icon && (
-          <Feather
-            name={icon}
-            size={18}
-            color={C.textMuted}
-            style={styles.leftIcon}
-          />
+          typeof icon === 'string'
+            // String prop → render the named Feather icon
+            ? <Feather name={icon} size={18} color={C.textMuted} style={styles.leftIcon} />
+            // React element → render it directly (already a <Feather> or custom icon)
+            : <View style={styles.leftIcon}>{icon}</View>
         )}
         <TextInput
           style={[

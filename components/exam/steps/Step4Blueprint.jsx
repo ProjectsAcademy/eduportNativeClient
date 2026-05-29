@@ -115,6 +115,9 @@ export function Step4Blueprint({ form, onUpdate }) {
               value={s.name}
               onChangeText={v => updateSection(s.id, 'name', v)}
               style={[styles.secName, { color: C.foreground, outlineStyle: 'none' }]}
+              autoComplete="off"
+              textContentType="none"
+              importantForAutofill="no"
             />
             {/* Type */}
             <View style={{ width: 120 }}>
@@ -128,6 +131,8 @@ export function Step4Blueprint({ form, onUpdate }) {
                 keyboardType="number-pad"
                 style={[styles.numInput, { color: C.foreground, outlineStyle: 'none' }]}
                 maxLength={3}
+                autoComplete="off"
+                importantForAutofill="no"
               />
               <Text style={[styles.numLabel, { color: C.textSubtle }]}>Qs</Text>
             </View>
@@ -139,6 +144,8 @@ export function Step4Blueprint({ form, onUpdate }) {
                 keyboardType="number-pad"
                 style={[styles.numInput, { color: C.foreground, outlineStyle: 'none' }]}
                 maxLength={2}
+                autoComplete="off"
+                importantForAutofill="no"
               />
               <Text style={[styles.numLabel, { color: C.textSubtle }]}>Marks</Text>
             </View>

@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  FlatList, Platform, useWindowDimensions,
+  Platform, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Feather } from '@expo/vector-icons';
@@ -10,80 +10,123 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
-import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
+import { Skeleton, SkeletonCard } from '../../components/ui/Skeleton';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { examService } from '../../services/examService';
 
-const UPCOMING_EXAMS = [
-  { title: 'Mathematics Final Exam', subject: 'Mathematics', status: 'scheduled', code: 'EXM-1042', date: '20 May 2026', duration: '90 min', questions: 50 },
-  { title: 'Physics Midterm Test', subject: 'Physics', status: 'active', code: 'EXM-2187', date: '22 May 2026', duration: '60 min', questions: 40 },
-  { title: 'English Literature Essay', subject: 'English', status: 'scheduled', code: 'EXM-3391', date: '25 May 2026', duration: '120 min', questions: 20 },
-];
-
-const STATS = [
-  { value: '24', label: 'Total Exams', icon: 'clipboard', color: '#6366F1', bg: 'rgba(99,102,241,0.10)', badge: '+3 this month', badgeColor: '#10B981', badgeBg: 'rgba(16,185,129,0.10)' },
-  { value: '7', label: 'Upcoming Exams', icon: 'calendar', color: '#F59E0B', bg: 'rgba(245,158,11,0.10)', badge: 'Next in 3 days', badgeColor: '#F59E0B', badgeBg: 'rgba(245,158,11,0.10)', pulse: true },
-];
+function formatDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 export default function DashboardIndex() {
   const { isDark } = useTheme();
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const C = isDark ? Colors.dark : Colors.light;
+  const { width } = useWindowDimensions();
+  const isWide = Platform.OS === 'web' && width >= 768;
 
-  // AuthGate in _layout.jsx handles redirect if !user
-  if (loading || !user) return null;
+  const [exams, setExams]     = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadExams = useCallback(async () => {
+    try {
+      const res = await examService.getMyExams();
+      setExams(res.data?.exams ?? []);
+    } catch (_) {
+      setExams([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { if (!authLoading && user) loadExams(); }, [authLoading, user]);
+
+  if (authLoading || !user) return null;
+
+  // ── Derived stats from real data ──────────────────────────────────────────
+  const totalExams    = exams.length;
+  const activeExams   = exams.filter(e => e.status === 'active' || e.status === 'scheduled').length;
+  const upcomingExams = exams
+    .filter(e => e.status === 'active' || e.status === 'scheduled')
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .slice(0, 5);
+
+  const STATS = [
+    {
+      value:      String(totalExams),
+      label:      'Total Exams',
+      icon:       'clipboard',
+      color:      '#6366F1',
+      bg:         'rgba(99,102,241,0.10)',
+      badge:      `${exams.filter(e => e.status === 'draft').length} draft`,
+      badgeColor: '#10B981',
+      badgeBg:    'rgba(16,185,129,0.10)',
+    },
+    {
+      value:      String(activeExams),
+      label:      'Active / Upcoming',
+      icon:       'calendar',
+      color:      '#F59E0B',
+      bg:         'rgba(245,158,11,0.10)',
+      badge:      activeExams > 0 ? 'Live now' : 'None active',
+      badgeColor: '#F59E0B',
+      badgeBg:    'rgba(245,158,11,0.10)',
+      pulse:      activeExams > 0,
+    },
+  ];
+
+  // ── Sub-components ────────────────────────────────────────────────────────
 
   const ExamRow = ({ item }) => (
     <View style={[styles.examRow, { borderBottomColor: C.border }]}>
       <View style={{ flex: 2 }}>
         <Text style={[styles.examTitle, { color: C.foreground }]} numberOfLines={1}>{item.title}</Text>
-        <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.subject} · {item.questions} questions</Text>
+        <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.subject || item.topic || '—'} · {item.questionCount} questions</Text>
       </View>
       <View style={{ flex: 1, alignItems: 'flex-start' }}>
-        <Badge label={item.status} variant={item.status === 'active' ? 'active' : 'scheduled'} />
+        <Badge label={item.status} variant={item.status} />
       </View>
       <View style={{ flex: 1 }}>
         <View style={styles.codeChip}>
-          <Text style={styles.codeText}>{item.code}</Text>
+          <Text style={styles.codeText}>{item.accessCode}</Text>
         </View>
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.examDate, { color: C.foreground }]}>{item.date}</Text>
+        <Text style={[styles.examDate, { color: C.foreground }]}>{formatDate(item.scheduledAt ?? item.createdAt)}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
           <Feather name="clock" size={11} color={C.textSubtle} />
-          <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.duration}</Text>
+          <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.settings?.duration ?? '—'} min</Text>
         </View>
       </View>
       <View style={{ flexDirection: 'row', gap: 4 }}>
-        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
-          <Feather name="edit-2" size={14} color={C.textMuted} />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
+        <TouchableOpacity
+          onPress={() => router.push({ pathname: '/dashboard/results', params: { examId: item.id } })}
+          style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}
+        >
           <Feather name="bar-chart-2" size={14} color={C.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
   );
 
-  // Mobile card layout for exam items (replaces table on small screens)
   const ExamCard = ({ item }) => (
     <View style={[styles.examCard, { backgroundColor: C.card, borderColor: C.border }]}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
         <View style={{ flex: 1, marginRight: 12 }}>
           <Text style={[styles.examTitle, { color: C.foreground }]} numberOfLines={2}>{item.title}</Text>
-          <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.subject} · {item.questions} questions</Text>
+          <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.subject || item.topic || '—'} · {item.questionCount} questions</Text>
         </View>
-        <Badge label={item.status} variant={item.status === 'active' ? 'active' : 'scheduled'} />
+        <Badge label={item.status} variant={item.status} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={styles.codeChip}><Text style={styles.codeText}>{item.code}</Text></View>
-        <Text style={[styles.examSub, { color: C.textSubtle }]}>{item.date} · {item.duration}</Text>
+        <View style={styles.codeChip}><Text style={styles.codeText}>{item.accessCode}</Text></View>
+        <Text style={[styles.examSub, { color: C.textSubtle }]}>{formatDate(item.scheduledAt ?? item.createdAt)} · {item.settings?.duration ?? '—'} min</Text>
       </View>
     </View>
   );
-
-  const { width } = useWindowDimensions();
-  const isWide = Platform.OS === 'web' && width >= 768;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.content, { padding: isWide ? 32 : 16 }]} showsVerticalScrollIndicator={false}>
@@ -96,7 +139,11 @@ export default function DashboardIndex() {
           <View style={{ flex: 1 }}>
             <Text style={[styles.welcomeTitle, { color: C.foreground }]}>Good morning, {user.firstName} 👋</Text>
             <Text style={[styles.welcomeSub, { color: C.textMuted }]}>
-              You have <Text style={{ color: C.foreground, fontFamily: Typography.fontFamily.bold }}>3 exams</Text> scheduled this week.
+              You have{' '}
+              <Text style={{ color: C.foreground, fontFamily: Typography.fontFamily.bold }}>
+                {loading ? '…' : `${activeExams} exam${activeExams !== 1 ? 's' : ''}`}
+              </Text>{' '}
+              active or scheduled.
             </Text>
           </View>
           <View style={[styles.welcomeActions, { marginTop: isWide ? 0 : 16 }]}>
@@ -116,44 +163,58 @@ export default function DashboardIndex() {
 
       {/* Stats */}
       <View style={[styles.statsRow, { flexDirection: isWide ? 'row' : 'column', gap: 16, marginBottom: 24 }]}>
-        {STATS.map((s, i) => (
-          <View key={i} style={[styles.statCard, { backgroundColor: C.card, borderColor: C.border, flex: isWide ? 1 : undefined }]}>
-            <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
-              <Feather name={s.icon} size={22} color={s.color} />
+        {loading
+          ? [1, 2].map(i => <Skeleton key={i} height={84} borderRadius={16} style={{ flex: isWide ? 1 : undefined }} />)
+          : STATS.map((s, i) => (
+            <View key={i} style={[styles.statCard, { backgroundColor: C.card, borderColor: C.border, flex: isWide ? 1 : undefined }]}>
+              <View style={[styles.statIcon, { backgroundColor: s.bg }]}>
+                <Feather name={s.icon} size={22} color={s.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.statValue, { color: C.foreground }]}>{s.value}</Text>
+                <Text style={[styles.statLabel, { color: C.textSubtle }]}>{s.label}</Text>
+              </View>
+              <View style={[styles.statBadge, { backgroundColor: s.badgeBg }]}>
+                {s.pulse && <View style={[styles.pulseDot, { backgroundColor: s.badgeColor }]} />}
+                <Text style={[styles.statBadgeText, { color: s.badgeColor }]}>{s.badge}</Text>
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.statValue, { color: C.foreground }]}>{s.value}</Text>
-              <Text style={[styles.statLabel, { color: C.textSubtle }]}>{s.label}</Text>
-            </View>
-            <View style={[styles.statBadge, { backgroundColor: s.badgeBg }]}>
-              {s.pulse && <View style={[styles.pulseDot, { backgroundColor: s.badgeColor }]} />}
-              <Text style={[styles.statBadgeText, { color: s.badgeColor }]}>{s.badge}</Text>
-            </View>
-          </View>
-        ))}
+          ))
+        }
       </View>
 
       {/* Upcoming Exams */}
       <View style={[styles.tableCard, { backgroundColor: C.card, borderColor: C.border }]}>
         <View style={[styles.tableHeader, { borderBottomColor: C.border }]}>
-          <Text style={[styles.tableTitle, { color: C.foreground }]}>Upcoming Exams</Text>
-          <TouchableOpacity>
+          <Text style={[styles.tableTitle, { color: C.foreground }]}>Active & Upcoming Exams</Text>
+          <TouchableOpacity onPress={() => router.push('/dashboard/exams')}>
             <Text style={{ color: '#6366F1', fontSize: Typography.size.sm, fontFamily: Typography.fontFamily.semiBold }}>View all →</Text>
           </TouchableOpacity>
         </View>
 
-        {isWide ? (
+        {loading ? (
+          <View style={{ padding: 16, gap: 10 }}>
+            {[1, 2, 3].map(i => <SkeletonCard key={i} height={60} />)}
+          </View>
+        ) : upcomingExams.length === 0 ? (
+          <EmptyState
+            icon="clipboard"
+            title="No active exams yet"
+            subtitle="Create your first exam to get started."
+            action={{ label: 'Create Exam', onPress: () => router.push('/dashboard/create-exam') }}
+          />
+        ) : isWide ? (
           <>
             <View style={[styles.tableHead, { backgroundColor: isDark ? Colors.dark.surface : Colors.light.surface }]}>
               {['Exam Title', 'Status', 'Access Code', 'Date & Duration', 'Actions'].map((h) => (
                 <Text key={h} style={[styles.tableHeadCell, { color: C.textSubtle, flex: h === 'Actions' ? 0.5 : h === 'Status' ? 0.8 : 1 }]}>{h}</Text>
               ))}
             </View>
-            {UPCOMING_EXAMS.map((item, i) => <ExamRow key={i} item={item} />)}
+            {upcomingExams.map((item) => <ExamRow key={item.id} item={item} />)}
           </>
         ) : (
           <View style={{ padding: 12, gap: 10 }}>
-            {UPCOMING_EXAMS.map((item, i) => <ExamCard key={i} item={item} />)}
+            {upcomingExams.map((item) => <ExamCard key={item.id} item={item} />)}
           </View>
         )}
       </View>
