@@ -56,7 +56,7 @@ export const aiService = {
    */
   async generateQuestions(params) {
     const headers = await authHeaders();
-    const res = await fetch(`${API_URL}/api/ai/generate/questions`, {
+    const res = await fetch(`${API_URL}/api/gemini/generate/questions`, {
       method:  'POST',
       headers,
       body:    JSON.stringify(params),
@@ -71,12 +71,12 @@ export const aiService = {
    * @param {string} topic
    * @param {string} [context]
    */
-  async analyseSubtopics(topic, context = '') {
+  async analyseSubtopics(topic, subject = '', context = '') {
     const headers = await authHeaders();
-    const res = await fetch(`${API_URL}/api/ai/analyse/subtopics`, {
+    const res = await fetch(`${API_URL}/api/gemini/analyse/subtopics`, {
       method:  'POST',
       headers,
-      body:    JSON.stringify({ topic, context }),
+      body:    JSON.stringify({ topic, subject, context }),
     });
     return handleResponse(res);
     // data.data: { subtopics: [{ name, percentage }] }
