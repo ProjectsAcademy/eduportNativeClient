@@ -177,7 +177,13 @@ export function QuestionCard({ question, index, onUpdate, onDelete, readOnly = f
               </View>
               <View style={[styles.typePill, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
                 <Text style={[styles.typeText, { color: C.textMuted }]}>
-                  {isTF ? 'T/F' : 'MCQ'}
+                  {question.type === 'true-false'   ? 'T/F'
+                   : question.type === 'short-answer' ? 'Short Ans.'
+                   : question.type === 'essay'        ? 'Essay'
+                   : question.type === 'fill-blank'   ? 'Fill Blank'
+                   : question.type === 'matching'     ? 'Matching'
+                   : question.type === 'ordering'     ? 'Ordering'
+                   : 'MCQ'}
                 </Text>
               </View>
             </View>

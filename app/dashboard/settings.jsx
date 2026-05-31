@@ -830,40 +830,87 @@ export default function SettingsScreen() {
               </View>
             ) : (
               <View style={{ gap: 16 }}>
-                {/* Today vs 30-day */}
-                {[
-                  { label: 'Today',        data: usageData.today },
-                  { label: 'Last 30 Days', data: usageData.last30 },
-                ].map(({ label, data }) => (
-                  <View key={label} style={[S.usageSection, { backgroundColor: C.surface2, borderColor: C.border }]}>
-                    <Text style={[S.usageSectionLabel, { color: C.textSubtle }]}>{label.toUpperCase()}</Text>
-                    <View style={S.usageGrid}>
-                      {[
-                        { label: 'Requests',    value: String(data.requestCount),     color: '#818CF8' },
-                        { label: 'Input Tokens', value: data.inputTokens.toLocaleString(), color: '#10B981' },
-                        { label: 'Output Tokens',value: data.outputTokens.toLocaleString(),color: '#F59E0B' },
-                        { label: 'Est. Cost',    value: `$${data.estimatedCostUsd.toFixed(4)}`,  color: '#EF4444' },
-                      ].map(s => (
-                        <View key={s.label} style={S.usageStat}>
-                          <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
-                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>{s.label}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    {usageData.last30.totalTokens > 0 && label === 'Last 30 Days' && (
-                      <View style={{ marginTop: 10, gap: 4 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>Token usage</Text>
-                          <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>
-                            {data.totalTokens.toLocaleString()} tokens used
-                          </Text>
-                        </View>
-                        <ProgressBar value={Math.min(100, (data.totalTokens / 1_000_000) * 100)} color="#818CF8" height={7} />
-                        <Text style={[S.helperText, { color: C.textSubtle }]}>vs. 1M token reference threshold</Text>
+
+                {/* ── TODAY ─────────────────────────────────────────────────── */}
+                <View style={[S.usageSection, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                  <Text style={[S.usageSectionLabel, { color: C.textSubtle }]}>TODAY</Text>
+                  <View style={S.usageGrid}>
+                    {[
+                      { label: 'Requests',      value: `${usageData.today.requestCount} / 1,500`, color: '#818CF8' },
+                      { label: 'Input Tokens',  value: usageData.today.inputTokens.toLocaleString(),  color: '#10B981' },
+                      { label: 'Output Tokens', value: usageData.today.outputTokens.toLocaleString(), color: '#F59E0B' },
+                      { label: 'Est. Cost',     value: '$0.00',                                       color: '#10B981' },
+                    ].map(s => (
+                      <View key={s.label} style={S.usageStat}>
+                        <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
+                        <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>{s.label}</Text>
                       </View>
-                    )}
+                    ))}
                   </View>
-                ))}
+
+                  {/* Daily request usage — the real binding limit on the free tier */}
+                  <View style={{ marginTop: 12, gap: 5 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>Daily Request Usage</Text>
+                      <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>
+                        {usageData.today.requestCount} / 1,500 requests used
+                      </Text>
+                    </View>
+                    <ProgressBar
+                      value={Math.min(100, (usageData.today.requestCount / 1500) * 100)}
+                      color={
+                        usageData.today.requestCount >= 1350 ? '#EF4444' :
+                        usageData.today.requestCount >= 900  ? '#F59E0B' : '#818CF8'
+                      }
+                      height={7}
+                    />
+                    <Text style={[S.helperText, { color: C.textSubtle }]}>
+                      vs. 1,500 daily request limit · resets at midnight Pacific Time
+                    </Text>
+                  </View>
+
+                  {/* Market cost equivalent — only shown when there is meaningful usage */}
+                  {usageData.today.estimatedCostUsd > 0 && (
+                    <View style={[S.costSavedRow, { borderTopColor: C.border }]}>
+                      <Feather name="tag" size={12} color="#10B981" />
+                      <Text style={[S.helperText, { color: C.textSubtle, flex: 1 }]}>
+                        {'Market cost equivalent: '}
+                        <Text style={{ color: '#10B981', fontFamily: Typography.fontFamily.bold }}>
+                          ${usageData.today.estimatedCostUsd.toFixed(4)}
+                        </Text>
+                        {' — saved on free tier'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* ── LAST 30 DAYS ──────────────────────────────────────────── */}
+                <View style={[S.usageSection, { backgroundColor: C.surface2, borderColor: C.border }]}>
+                  <Text style={[S.usageSectionLabel, { color: C.textSubtle }]}>LAST 30 DAYS</Text>
+                  <View style={S.usageGrid}>
+                    {[
+                      { label: 'Requests',      value: String(usageData.last30.requestCount),              color: '#818CF8' },
+                      { label: 'Input Tokens',  value: usageData.last30.inputTokens.toLocaleString(),      color: '#10B981' },
+                      { label: 'Output Tokens', value: usageData.last30.outputTokens.toLocaleString(),     color: '#F59E0B' },
+                      { label: 'Market Value',  value: `$${usageData.last30.estimatedCostUsd.toFixed(4)}`, color: '#6366F1' },
+                    ].map(s => (
+                      <View key={s.label} style={S.usageStat}>
+                        <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
+                        <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>{s.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+
+                {/* ── Free tier legend ──────────────────────────────────────── */}
+                <View style={[S.hint, { backgroundColor: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)', borderColor: 'rgba(99,102,241,0.2)' }]}>
+                  <Feather name="info" size={13} color="#818CF8" />
+                  <Text style={[S.hintText, { color: '#818CF8' }]}>
+                    {'Google AI Studio Free Tier · 1,500 req/day · 15 RPM · 1M TPM · $0.00 cost.\n'}
+                    {'Requests = total Gemini API calls today. Input/Output Tokens = tokens sent/received. Market Value = what this usage would cost on a paid plan.'}
+                  </Text>
+                </View>
+
                 <Text style={[S.helperText, { color: C.textSubtle, textAlign: 'right' }]}>
                   Last updated: {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
@@ -1026,4 +1073,5 @@ const S = StyleSheet.create({
   usageStat:        { minWidth: 80, gap: 3 },
   usageStatVal:     { fontSize: Typography.size.lg, fontFamily: Typography.fontFamily.extraBold },
   usageStatLabel:   { fontSize: 9, fontFamily: Typography.fontFamily.medium },
+  costSavedRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 10 },
 });

@@ -14,7 +14,7 @@ const PIPELINE_STAGES = [
   { id: 'analyse',   icon: '🔍', name: 'Analysing Topic',      desc: 'Understanding curriculum context and subtopics' },
   { id: 'blueprint', icon: '📐', name: 'Reading Blueprint',     desc: 'Mapping sections and difficulty distribution' },
   { id: 'generate',  icon: '⚡', name: 'Generating Questions',  desc: 'Creating MCQ options with intelligent distractors' },
-  { id: 'quality',   icon: '✅', name: 'Quality Check',          desc: 'Validating accuracy, uniqueness and difficulty balance' },
+  { id: 'quality',   icon: '✅', name: 'Finalising',              desc: 'Structuring questions and preparing for review' },
 ];
 
 const TYPING_TEXT = 'Generating curriculum-aligned questions based on your blueprint. Applying Bloom\'s taxonomy levels and cognitive design parameters…';
@@ -47,7 +47,8 @@ export function Step5Generate({ form, onUpdate, onNext }) {
     setDone(false);
     setGenError('');
 
-    // Fire the real Gemini API call immediately — runs parallel to animation
+    // Fire the real Gemini API call immediately — runs parallel to animation.
+    // blueprint is passed so the backend generates the correct type per section.
     apiPromiseRef.current = aiService.generateQuestions({
       topic:      form.topic,
       subject:    form.subject      || '',
@@ -55,6 +56,7 @@ export function Step5Generate({ form, onUpdate, onNext }) {
       subtopics:  form.subtopics,
       count:      qCount,
       difficulty: difficultyLabel,
+      blueprint:  form.blueprint,   // carries type per section (MCQ, essay, etc.)
     });
   };
 
@@ -90,6 +92,7 @@ export function Step5Generate({ form, onUpdate, onNext }) {
           }));
 
           onUpdate({ questions: normalised });
+          setStageIdx(PIPELINE_STAGES.length); // advance past all stages → Quality Check shows Done ✓
           setDone(true);
         } catch (err) {
           const isNoKey = err?.status === 404 || String(err?.message).includes('No Gemini');

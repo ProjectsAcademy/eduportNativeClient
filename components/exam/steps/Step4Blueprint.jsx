@@ -34,6 +34,22 @@ export function Step4Blueprint({ form, onUpdate }) {
 
   const sections = form.blueprint;
 
+  // Raw string state for number inputs — allows empty/partial strings while typing.
+  // Key format: `${sectionId}|${field}`. Draft is cleared on blur after commit.
+  const [numDrafts, setNumDrafts] = useState({});
+  const draftKey  = (id, field) => `${id}|${field}`;
+  const getDraft  = (id, field, stored) =>
+    draftKey(id, field) in numDrafts ? numDrafts[draftKey(id, field)] : String(stored);
+  const setDraft  = (id, field, raw) =>
+    setNumDrafts(prev => ({ ...prev, [draftKey(id, field)]: raw }));
+  const commitDraft = (id, field, min = 1) => {
+    const key = draftKey(id, field);
+    if (!(key in numDrafts)) return;
+    const parsed = parseInt(numDrafts[key], 10);
+    updateSection(id, field, isNaN(parsed) || parsed < min ? min : parsed);
+    setNumDrafts(prev => { const n = { ...prev }; delete n[key]; return n; });
+  };
+
   const applyTemplate = (key) => {
     const t = TEMPLATES[key];
     if (!t) return;
@@ -126,8 +142,9 @@ export function Step4Blueprint({ form, onUpdate }) {
             {/* Count */}
             <View style={[styles.numWrap, { borderColor: C.borderMedium, backgroundColor: C.surface2 }]}>
               <TextInput
-                value={String(s.count)}
-                onChangeText={v => updateSection(s.id, 'count', parseInt(v) || 1)}
+                value={getDraft(s.id, 'count', s.count)}
+                onChangeText={v => setDraft(s.id, 'count', v.replace(/[^0-9]/g, ''))}
+                onBlur={() => commitDraft(s.id, 'count', 1)}
                 keyboardType="number-pad"
                 style={[styles.numInput, { color: C.foreground, outlineStyle: 'none' }]}
                 maxLength={3}
@@ -139,8 +156,9 @@ export function Step4Blueprint({ form, onUpdate }) {
             {/* Marks per Q */}
             <View style={[styles.numWrap, { borderColor: C.borderMedium, backgroundColor: C.surface2 }]}>
               <TextInput
-                value={String(s.marksPerQ)}
-                onChangeText={v => updateSection(s.id, 'marksPerQ', parseInt(v) || 1)}
+                value={getDraft(s.id, 'marksPerQ', s.marksPerQ)}
+                onChangeText={v => setDraft(s.id, 'marksPerQ', v.replace(/[^0-9]/g, ''))}
+                onBlur={() => commitDraft(s.id, 'marksPerQ', 1)}
                 keyboardType="number-pad"
                 style={[styles.numInput, { color: C.foreground, outlineStyle: 'none' }]}
                 maxLength={2}
