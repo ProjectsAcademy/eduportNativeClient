@@ -1,15 +1,15 @@
 /**
  * Gemini API configuration service (frontend).
  *
- * All API key management (save, validate, delete, status) goes through here.
- * The frontend NEVER stores or transmits the raw key directly to Gemini —
- * it always proxies through the backend, which handles encryption.
+ * Key management calls still route through /api/gemini/key because the
+ * Settings → AI Integration tab is Gemini-specific. The generic
+ * /api/ai/keys/:provider routes are available for future multi-provider UI.
+ *
+ * Usage data is now served by /api/ai/usage (see aiService.getUsage).
  */
 
 import { API_URL } from '../../constants/api';
 import { storage } from '../../utils/storage';
-
-// ── Auth headers ──────────────────────────────────────────────────────────────
 
 async function authHeaders() {
   const token = await storage.getItem('token');
@@ -29,14 +29,6 @@ async function handleResponse(res) {
   return data;
 }
 
-// ── Key management ────────────────────────────────────────────────────────────
-
-/**
- * Saves (and validates) the Gemini API key via the backend.
- * The key is encrypted server-side — never stored plaintext.
- *
- * @returns { keyPreview, isValid, validationMessage, lastVerifiedAt }
- */
 export const geminiService = {
 
   async saveKey(apiKey) {
@@ -47,14 +39,12 @@ export const geminiService = {
       body:    JSON.stringify({ apiKey }),
     });
     return handleResponse(res);
-    // data.data: { keyPreview, isValid, validationMessage, lastVerifiedAt }
   },
 
   async getKeyStatus() {
     const headers = await authHeaders();
     const res = await fetch(`${API_URL}/api/gemini/key`, { headers });
     return handleResponse(res);
-    // data.data: { hasKey, keyPreview?, isValid?, validationMessage?, lastVerifiedAt? }
   },
 
   async revalidateKey() {
@@ -75,10 +65,10 @@ export const geminiService = {
     return handleResponse(res);
   },
 
+  /** @deprecated — use aiService.getUsage() which returns model/provider breakdown */
   async getUsage() {
     const headers = await authHeaders();
-    const res = await fetch(`${API_URL}/api/gemini/usage`, { headers });
+    const res = await fetch(`${API_URL}/api/ai/usage`, { headers });
     return handleResponse(res);
-    // data.data.usage: { today, last30, history }
   },
 };

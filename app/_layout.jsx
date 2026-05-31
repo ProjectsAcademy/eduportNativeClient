@@ -29,14 +29,22 @@ function AuthGate() {
   useEffect(() => {
     if (loading) return; // wait for AsyncStorage restore
 
-    const inDashboard = segments[0] === 'dashboard';
+    const inDashboard   = segments[0] === 'dashboard';
+    const inSuper       = segments[0] === 'super';
+    const isSuperAdmin  = user?.role === 'super_admin';
 
-    if (user && !inDashboard) {
-      // Logged in but on auth screen → go to dashboard
-      router.replace('/dashboard');
-    } else if (!user && inDashboard) {
-      // Not logged in but trying to access dashboard → kick to login
-      router.replace('/');
+    if (!user) {
+      // Not authenticated — kick out of any protected area
+      if (inDashboard || inSuper) router.replace('/');
+      return;
+    }
+
+    if (isSuperAdmin) {
+      // Super admin must be in /super — redirect from anywhere else
+      if (!inSuper) router.replace('/super');
+    } else {
+      // Regular users must be in /dashboard — redirect from /super and auth screen
+      if (!inDashboard) router.replace('/dashboard');
     }
   }, [user, loading, segments]);
 
@@ -52,6 +60,7 @@ function RootLayoutNav() {
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="dashboard" />
+        <Stack.Screen name="super" />
         <Stack.Screen name="(exam)" options={{ animation: 'none' }} />
       </Stack>
     </>

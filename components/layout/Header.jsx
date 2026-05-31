@@ -101,20 +101,25 @@ export function Header({ onMenuPress, title = '' }) {
               <Text style={[styles.dropdownSection, { color: C.textSubtle }]}>My Account</Text>
 
               <TouchableOpacity
-                onPress={() => { setProfileOpen(false); router.push('/dashboard/settings'); }}
+                onPress={() => {
+                  setProfileOpen(false);
+                  router.push(user?.role === 'super_admin' ? '/super' : '/dashboard/settings');
+                }}
                 style={styles.dropdownItem}
               >
                 <Feather name="user" size={14} color={C.textMuted} />
                 <Text style={[styles.dropdownItemText, { color: C.foreground }]}>Profile</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => { setProfileOpen(false); router.push('/dashboard/settings'); }}
-                style={styles.dropdownItem}
-              >
-                <Feather name="settings" size={14} color={C.textMuted} />
-                <Text style={[styles.dropdownItemText, { color: C.foreground }]}>Settings</Text>
-              </TouchableOpacity>
+              {user?.role !== 'super_admin' && (
+                <TouchableOpacity
+                  onPress={() => { setProfileOpen(false); router.push('/dashboard/settings'); }}
+                  style={styles.dropdownItem}
+                >
+                  <Feather name="settings" size={14} color={C.textMuted} />
+                  <Text style={[styles.dropdownItemText, { color: C.foreground }]}>Settings</Text>
+                </TouchableOpacity>
+              )}
 
               <View style={[styles.dropdownDivider, { borderColor: C.border }]} />
 

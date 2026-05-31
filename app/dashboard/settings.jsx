@@ -20,6 +20,7 @@ import { ProgressBar } from '../../components/ui/ProgressBar';
 import { ENDPOINTS, API_URL } from '../../constants/api';
 import { pickFromGallery, takePhoto, getMediaErrorMessage } from '../../services/media/mediaPickerService';
 import { geminiService } from '../../services/ai/geminiService';
+import { aiService }     from '../../services/ai/aiService';
 import { Skeleton } from '../../components/ui/Skeleton';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -243,27 +244,23 @@ export default function SettingsScreen() {
   const [geminiKeyVisible, setGeminiKeyVisible] = useState(false);
   const [geminiStatus,     setGeminiStatus]     = useState(null);
   const [geminiSaving,     setGeminiSaving]     = useState(false);
-  // RC-1 fix: separate loading states so key card and usage card are independent
   const [statusLoading,    setStatusLoading]    = useState(false);
   const [usageLoading,     setUsageLoading]     = useState(false);
   const [usageData,        setUsageData]        = useState(null);
-  // RC-2 fix: staleness cache — only refetch if data is > 60s old
+  const [topModels,        setTopModels]        = useState([]);
   const geminiLoadedAt = useRef(0);
 
   const loadGeminiStatus = useCallback(async (force = false) => {
     const now = Date.now();
-    if (!force && geminiLoadedAt.current > 0 && now - geminiLoadedAt.current < 60_000) {
-      // Data is fresh — skip the network round-trips
-      return;
-    }
+    if (!force && geminiLoadedAt.current > 0 && now - geminiLoadedAt.current < 60_000) return;
 
-    // RC-1 fix: fire both requests in parallel, each has its own loading state
     setStatusLoading(true);
     setUsageLoading(true);
 
-    const [statusResult, usageResult] = await Promise.allSettled([
+    const [statusResult, usageResult, topModelsResult] = await Promise.allSettled([
       geminiService.getKeyStatus(),
-      geminiService.getUsage(),
+      aiService.getUsage(),
+      aiService.getTopModels(5),
     ]);
 
     if (statusResult.status === 'fulfilled') setGeminiStatus(statusResult.value.data);
@@ -271,6 +268,7 @@ export default function SettingsScreen() {
     setStatusLoading(false);
 
     if (usageResult.status === 'fulfilled') setUsageData(usageResult.value.data?.usage ?? null);
+    if (topModelsResult.status === 'fulfilled') setTopModels(topModelsResult.value.data?.topModels ?? []);
     setUsageLoading(false);
 
     geminiLoadedAt.current = Date.now();
@@ -837,9 +835,9 @@ export default function SettingsScreen() {
                   <View style={S.usageGrid}>
                     {[
                       { label: 'Requests',      value: `${usageData.today.requestCount} / 1,500`, color: '#818CF8' },
-                      { label: 'Input Tokens',  value: usageData.today.inputTokens.toLocaleString(),  color: '#10B981' },
-                      { label: 'Output Tokens', value: usageData.today.outputTokens.toLocaleString(), color: '#F59E0B' },
-                      { label: 'Est. Cost',     value: '$0.00',                                       color: '#10B981' },
+                      { label: 'Input Tokens',  value: (usageData.today.inputTokens  ?? 0).toLocaleString(), color: '#10B981' },
+                      { label: 'Output Tokens', value: (usageData.today.outputTokens ?? 0).toLocaleString(), color: '#F59E0B' },
+                      { label: 'Est. Cost',     value: '$0.00',                                              color: '#10B981' },
                     ].map(s => (
                       <View key={s.label} style={S.usageStat}>
                         <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
@@ -848,7 +846,7 @@ export default function SettingsScreen() {
                     ))}
                   </View>
 
-                  {/* Daily request usage — the real binding limit on the free tier */}
+                  {/* Daily request usage progress bar */}
                   <View style={{ marginTop: 12, gap: 5 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Text style={[S.usageStatLabel, { color: C.textSubtle }]}>Daily Request Usage</Text>
@@ -869,14 +867,29 @@ export default function SettingsScreen() {
                     </Text>
                   </View>
 
-                  {/* Market cost equivalent — only shown when there is meaningful usage */}
-                  {usageData.today.estimatedCostUsd > 0 && (
+                  {/* Per-model breakdown for today */}
+                  {usageData.today.byModel?.length > 0 && (
+                    <View style={[S.modelBreakdown, { borderTopColor: C.border }]}>
+                      <Text style={[S.usageStatLabel, { color: C.textSubtle, marginBottom: 8 }]}>BY MODEL</Text>
+                      {usageData.today.byModel.map(m => (
+                        <View key={`${m.provider}/${m.model}`} style={S.modelRow}>
+                          <View style={[S.modelDot, { backgroundColor: m.provider === 'google' ? '#818CF8' : m.provider === 'openai' ? '#10B981' : '#F59E0B' }]} />
+                          <Text style={[S.modelName, { color: C.foreground }]} numberOfLines={1}>{m.displayName}</Text>
+                          <Text style={[S.modelStat, { color: C.textSubtle }]}>{m.requestCount} req</Text>
+                          <Text style={[S.modelStat, { color: C.textSubtle }]}>{(m.totalTokens ?? 0).toLocaleString()} tok</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+
+                  {/* Market cost equivalent */}
+                  {(usageData.today.marketCostUsd ?? 0) > 0 && (
                     <View style={[S.costSavedRow, { borderTopColor: C.border }]}>
                       <Feather name="tag" size={12} color="#10B981" />
                       <Text style={[S.helperText, { color: C.textSubtle, flex: 1 }]}>
                         {'Market cost equivalent: '}
                         <Text style={{ color: '#10B981', fontFamily: Typography.fontFamily.bold }}>
-                          ${usageData.today.estimatedCostUsd.toFixed(4)}
+                          ${(usageData.today.marketCostUsd ?? 0).toFixed(4)}
                         </Text>
                         {' — saved on free tier'}
                       </Text>
@@ -889,10 +902,10 @@ export default function SettingsScreen() {
                   <Text style={[S.usageSectionLabel, { color: C.textSubtle }]}>LAST 30 DAYS</Text>
                   <View style={S.usageGrid}>
                     {[
-                      { label: 'Requests',      value: String(usageData.last30.requestCount),              color: '#818CF8' },
-                      { label: 'Input Tokens',  value: usageData.last30.inputTokens.toLocaleString(),      color: '#10B981' },
-                      { label: 'Output Tokens', value: usageData.last30.outputTokens.toLocaleString(),     color: '#F59E0B' },
-                      { label: 'Market Value',  value: `$${usageData.last30.estimatedCostUsd.toFixed(4)}`, color: '#6366F1' },
+                      { label: 'Requests',      value: String(usageData.last30.requestCount),                   color: '#818CF8' },
+                      { label: 'Input Tokens',  value: (usageData.last30.inputTokens  ?? 0).toLocaleString(),   color: '#10B981' },
+                      { label: 'Output Tokens', value: (usageData.last30.outputTokens ?? 0).toLocaleString(),   color: '#F59E0B' },
+                      { label: 'Market Value',  value: `$${(usageData.last30.marketCostUsd ?? 0).toFixed(4)}`,  color: '#6366F1' },
                     ].map(s => (
                       <View key={s.label} style={S.usageStat}>
                         <Text style={[S.usageStatVal, { color: s.color }]}>{s.value}</Text>
@@ -900,14 +913,30 @@ export default function SettingsScreen() {
                       </View>
                     ))}
                   </View>
+
+                  {/* Per-model breakdown for last 30 days */}
+                  {usageData.last30.byModel?.length > 0 && (
+                    <View style={[S.modelBreakdown, { borderTopColor: C.border }]}>
+                      <Text style={[S.usageStatLabel, { color: C.textSubtle, marginBottom: 8 }]}>BY MODEL</Text>
+                      {usageData.last30.byModel.map(m => (
+                        <View key={`${m.provider}/${m.model}`} style={S.modelRow}>
+                          <View style={[S.modelDot, { backgroundColor: m.provider === 'google' ? '#818CF8' : m.provider === 'openai' ? '#10B981' : '#F59E0B' }]} />
+                          <Text style={[S.modelName, { color: C.foreground }]} numberOfLines={1}>{m.displayName}</Text>
+                          <Text style={[S.modelStat, { color: C.textSubtle }]}>{m.requestCount} req</Text>
+                          <Text style={[S.modelStat, { color: C.textSubtle }]}>{(m.totalTokens ?? 0).toLocaleString()} tok</Text>
+                          <Text style={[S.modelStat, { color: '#6366F1' }]}>${(m.marketCostUsd ?? 0).toFixed(4)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
 
-                {/* ── Free tier legend ──────────────────────────────────────── */}
+                {/* ── Free tier info ────────────────────────────────────────── */}
                 <View style={[S.hint, { backgroundColor: isDark ? 'rgba(99,102,241,0.06)' : 'rgba(99,102,241,0.04)', borderColor: 'rgba(99,102,241,0.2)' }]}>
                   <Feather name="info" size={13} color="#818CF8" />
                   <Text style={[S.hintText, { color: '#818CF8' }]}>
                     {'Google AI Studio Free Tier · 1,500 req/day · 15 RPM · 1M TPM · $0.00 cost.\n'}
-                    {'Requests = total Gemini API calls today. Input/Output Tokens = tokens sent/received. Market Value = what this usage would cost on a paid plan.'}
+                    {'Market Value shows what this usage would cost on a paid plan. Multiple AI providers can be configured in the key management section above.'}
                   </Text>
                 </View>
 
@@ -1074,4 +1103,9 @@ const S = StyleSheet.create({
   usageStatVal:     { fontSize: Typography.size.lg, fontFamily: Typography.fontFamily.extraBold },
   usageStatLabel:   { fontSize: 9, fontFamily: Typography.fontFamily.medium },
   costSavedRow:     { flexDirection: 'row', alignItems: 'center', gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 10 },
+  modelBreakdown:   { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 10, gap: 6 },
+  modelRow:         { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modelDot:         { width: 7, height: 7, borderRadius: 4, flexShrink: 0 },
+  modelName:        { flex: 1, fontSize: 11, fontFamily: Typography.fontFamily.semiBold },
+  modelStat:        { fontSize: 10, fontFamily: Typography.fontFamily.medium, minWidth: 52, textAlign: 'right' },
 });

@@ -2,21 +2,19 @@
  * AIService — centralized AI generation layer (frontend).
  *
  * All AI calls in the app (exam generation, question generation, analysis)
- * must go through this service. Never call the Gemini API or backend AI
- * endpoints directly from a component or screen.
+ * must go through this service. Never call any AI endpoint directly from
+ * a component or screen.
  *
- * Architecture:
- * - Component calls aiService.generateQuestions(params)
- * - aiService builds the prompt + calls backend /api/ai/generate
- * - Backend decrypts the stored Gemini key, calls Gemini, tracks usage, returns result
- * - Component receives clean structured data
+ * Provider replacement: to swap Gemini for another provider, only the
+ * backend llmService.ts needs updating. This file stays the same.
  *
- * This layer handles:
- * - Prompt building
- * - Response parsing
- * - Error normalisation
- * - Retry logic (future)
- * - Provider replacement (swap Gemini for OpenAI without touching any screen)
+ * Routes used:
+ *   POST /api/ai/analyse/subtopics   — generic (any provider)
+ *   POST /api/gemini/generate/questions — still Gemini-specific (uses advanced
+ *                                         blueprint + responseSchema features)
+ *   GET  /api/ai/usage               — usage with model/provider breakdown
+ *   GET  /api/analytics/usage        — analytics breakdown
+ *   GET  /api/analytics/usage/requests — per-request history
  */
 
 import { API_URL } from '../../constants/api';
@@ -43,16 +41,8 @@ async function handleResponse(res) {
 export const aiService = {
 
   /**
-   * Generate MCQ questions for an exam.
-   *
-   * @param {object} params
-   * @param {string} params.topic         - Main topic/subject
-   * @param {number} params.count         - Number of questions (1–50)
-   * @param {string} params.subject       - Subject area
-   * @param {string} params.difficulty    - 'easy' | 'moderate' | 'hard'
-   * @param {string} params.bloomsLevel   - 'remember' | 'understand' | 'apply' | ...
-   * @param {string} [params.context]     - Additional context / constraints
-   * @returns {Array} Array of question objects
+   * Generate questions for an exam.
+   * Uses the Gemini-specific route to retain responseSchema + blueprint support.
    */
   async generateQuestions(params) {
     const headers = await authHeaders();
@@ -62,39 +52,64 @@ export const aiService = {
       body:    JSON.stringify(params),
     });
     return handleResponse(res);
-    // data.data: { questions: [...], inputTokens, outputTokens }
   },
 
   /**
    * Analyse a topic and suggest subtopics with coverage percentages.
-   *
-   * @param {string} topic
-   * @param {string} [context]
+   * Uses the generic /api/ai/ route — works with any configured provider.
    */
   async analyseSubtopics(topic, subject = '', context = '') {
     const headers = await authHeaders();
-    const res = await fetch(`${API_URL}/api/gemini/analyse/subtopics`, {
+    const res = await fetch(`${API_URL}/api/ai/analyse/subtopics`, {
       method:  'POST',
       headers,
       body:    JSON.stringify({ topic, subject, context }),
     });
     return handleResponse(res);
-    // data.data: { subtopics: [{ name, percentage }] }
   },
 
   /**
-   * Generic generation — for future AI features.
-   * @param {string} prompt
-   * @param {object} [options]
+   * Get usage summary (today + last 30 days + by-model breakdown).
+   * Now served from the generic /api/ai/usage route.
    */
-  async generate(prompt, options = {}) {
+  async getUsage() {
     const headers = await authHeaders();
-    const res = await fetch(`${API_URL}/api/ai/generate`, {
-      method:  'POST',
-      headers,
-      body:    JSON.stringify({ prompt, ...options }),
-    });
+    const res = await fetch(`${API_URL}/api/ai/usage`, { headers });
     return handleResponse(res);
-    // data.data: { text, inputTokens, outputTokens }
+  },
+
+  /**
+   * Get detailed analytics breakdown with optional date/model filters.
+   * @param {object} [params] — { from, to, provider, model }
+   */
+  async getAnalytics(params = {}) {
+    const headers = await authHeaders();
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+    ).toString();
+    const res = await fetch(`${API_URL}/api/analytics/usage${qs ? `?${qs}` : ''}`, { headers });
+    return handleResponse(res);
+  },
+
+  /**
+   * Get paginated per-request history.
+   * @param {object} [params] — { page, limit, provider, model, feature, status }
+   */
+  async getRequestHistory(params = {}) {
+    const headers = await authHeaders();
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
+    ).toString();
+    const res = await fetch(`${API_URL}/api/analytics/usage/requests${qs ? `?${qs}` : ''}`, { headers });
+    return handleResponse(res);
+  },
+
+  /**
+   * Get most-used AI models for this user (last 30 days).
+   */
+  async getTopModels(limit = 5) {
+    const headers = await authHeaders();
+    const res = await fetch(`${API_URL}/api/analytics/usage/top-models?limit=${limit}`, { headers });
+    return handleResponse(res);
   },
 };
